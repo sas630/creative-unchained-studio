@@ -10,33 +10,185 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as ApiStoryRouteImport } from './routes/api/story'
+import { Route as CharactersIndexRouteImport } from './routes/characters.index'
+import { Route as CharactersCharacterIdRouteImport } from './routes/characters.$characterId'
+import { Route as AuthenticatedCharactersNewRouteImport } from './routes/_authenticated/characters.new'
+import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated/chat.index'
+import { Route as AuthenticatedChatChatIdRouteImport } from './routes/_authenticated/chat.$chatId'
+import { Route as AuthenticatedStoriesIndexRouteImport } from './routes/_authenticated/stories.index'
+import { Route as AuthenticatedStoriesStoryIdRouteImport } from './routes/_authenticated/stories.$storyId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const ApiChatRoute = ApiChatRouteImport.update({
+  id: '/api/chat',
+  path: '/api/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStoryRoute = ApiStoryRouteImport.update({
+  id: '/api/story',
+  path: '/api/story',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CharactersIndexRoute = CharactersIndexRouteImport.update({
+  id: '/characters/',
+  path: '/characters/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CharactersCharacterIdRoute = CharactersCharacterIdRouteImport.update({
+  id: '/characters/$characterId',
+  path: '/characters/$characterId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedCharactersNewRoute =
+  AuthenticatedCharactersNewRouteImport.update({
+    id: '/characters/new',
+    path: '/characters/new',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedChatIndexRoute = AuthenticatedChatIndexRouteImport.update({
+  id: '/chat/',
+  path: '/chat/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedChatChatIdRoute = AuthenticatedChatChatIdRouteImport.update({
+  id: '/chat/$chatId',
+  path: '/chat/$chatId',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedStoriesIndexRoute =
+  AuthenticatedStoriesIndexRouteImport.update({
+    id: '/stories/',
+    path: '/stories/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedStoriesStoryIdRoute =
+  AuthenticatedStoriesStoryIdRouteImport.update({
+    id: '/stories/$storyId',
+    path: '/stories/$storyId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/settings': typeof AuthenticatedSettingsRoute
+  '/api/chat': typeof ApiChatRoute
+  '/api/story': typeof ApiStoryRoute
+  '/characters/$characterId': typeof CharactersCharacterIdRoute
+  '/characters/': typeof CharactersIndexRoute
+  '/characters/new': typeof AuthenticatedCharactersNewRoute
+  '/chat/$chatId': typeof AuthenticatedChatChatIdRoute
+  '/stories/$storyId': typeof AuthenticatedStoriesStoryIdRoute
+  '/chat/': typeof AuthenticatedChatIndexRoute
+  '/stories/': typeof AuthenticatedStoriesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/settings': typeof AuthenticatedSettingsRoute
+  '/api/chat': typeof ApiChatRoute
+  '/api/story': typeof ApiStoryRoute
+  '/characters/$characterId': typeof CharactersCharacterIdRoute
+  '/characters': typeof CharactersIndexRoute
+  '/characters/new': typeof AuthenticatedCharactersNewRoute
+  '/chat/$chatId': typeof AuthenticatedChatChatIdRoute
+  '/stories/$storyId': typeof AuthenticatedStoriesStoryIdRoute
+  '/chat': typeof AuthenticatedChatIndexRoute
+  '/stories': typeof AuthenticatedStoriesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/api/chat': typeof ApiChatRoute
+  '/api/story': typeof ApiStoryRoute
+  '/characters/$characterId': typeof CharactersCharacterIdRoute
+  '/characters/': typeof CharactersIndexRoute
+  '/_authenticated/characters/new': typeof AuthenticatedCharactersNewRoute
+  '/_authenticated/chat/$chatId': typeof AuthenticatedChatChatIdRoute
+  '/_authenticated/stories/$storyId': typeof AuthenticatedStoriesStoryIdRoute
+  '/_authenticated/chat/': typeof AuthenticatedChatIndexRoute
+  '/_authenticated/stories/': typeof AuthenticatedStoriesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/settings'
+    | '/api/chat'
+    | '/api/story'
+    | '/characters/$characterId'
+    | '/characters/'
+    | '/characters/new'
+    | '/chat/$chatId'
+    | '/stories/$storyId'
+    | '/chat/'
+    | '/stories/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/auth'
+    | '/settings'
+    | '/api/chat'
+    | '/api/story'
+    | '/characters/$characterId'
+    | '/characters'
+    | '/characters/new'
+    | '/chat/$chatId'
+    | '/stories/$storyId'
+    | '/chat'
+    | '/stories'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/auth'
+    | '/_authenticated/settings'
+    | '/api/chat'
+    | '/api/story'
+    | '/characters/$characterId'
+    | '/characters/'
+    | '/_authenticated/characters/new'
+    | '/_authenticated/chat/$chatId'
+    | '/_authenticated/stories/$storyId'
+    | '/_authenticated/chat/'
+    | '/_authenticated/stories/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AuthRoute: typeof AuthRoute
+  ApiChatRoute: typeof ApiChatRoute
+  ApiStoryRoute: typeof ApiStoryRoute
+  CharactersCharacterIdRoute: typeof CharactersCharacterIdRoute
+  CharactersIndexRoute: typeof CharactersIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,22 +200,123 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/chat': {
+      id: '/api/chat'
+      path: '/api/chat'
+      fullPath: '/api/chat'
+      preLoaderRoute: typeof ApiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/story': {
+      id: '/api/story'
+      path: '/api/story'
+      fullPath: '/api/story'
+      preLoaderRoute: typeof ApiStoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/characters/': {
+      id: '/characters/'
+      path: '/characters'
+      fullPath: '/characters/'
+      preLoaderRoute: typeof CharactersIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/characters/$characterId': {
+      id: '/characters/$characterId'
+      path: '/characters/$characterId'
+      fullPath: '/characters/$characterId'
+      preLoaderRoute: typeof CharactersCharacterIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/characters/new': {
+      id: '/_authenticated/characters/new'
+      path: '/characters/new'
+      fullPath: '/characters/new'
+      preLoaderRoute: typeof AuthenticatedCharactersNewRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/chat/': {
+      id: '/_authenticated/chat/'
+      path: '/chat'
+      fullPath: '/chat/'
+      preLoaderRoute: typeof AuthenticatedChatIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/chat/$chatId': {
+      id: '/_authenticated/chat/$chatId'
+      path: '/chat/$chatId'
+      fullPath: '/chat/$chatId'
+      preLoaderRoute: typeof AuthenticatedChatChatIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/stories/': {
+      id: '/_authenticated/stories/'
+      path: '/stories'
+      fullPath: '/stories/'
+      preLoaderRoute: typeof AuthenticatedStoriesIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/stories/$storyId': {
+      id: '/_authenticated/stories/$storyId'
+      path: '/stories/$storyId'
+      fullPath: '/stories/$storyId'
+      preLoaderRoute: typeof AuthenticatedStoriesStoryIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedCharactersNewRoute: typeof AuthenticatedCharactersNewRoute
+  AuthenticatedChatChatIdRoute: typeof AuthenticatedChatChatIdRoute
+  AuthenticatedStoriesStoryIdRoute: typeof AuthenticatedStoriesStoryIdRoute
+  AuthenticatedChatIndexRoute: typeof AuthenticatedChatIndexRoute
+  AuthenticatedStoriesIndexRoute: typeof AuthenticatedStoriesIndexRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedCharactersNewRoute: AuthenticatedCharactersNewRoute,
+  AuthenticatedChatChatIdRoute: AuthenticatedChatChatIdRoute,
+  AuthenticatedStoriesStoryIdRoute: AuthenticatedStoriesStoryIdRoute,
+  AuthenticatedChatIndexRoute: AuthenticatedChatIndexRoute,
+  AuthenticatedStoriesIndexRoute: AuthenticatedStoriesIndexRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
+  ApiChatRoute: ApiChatRoute,
+  ApiStoryRoute: ApiStoryRoute,
+  CharactersCharacterIdRoute: CharactersCharacterIdRoute,
+  CharactersIndexRoute: CharactersIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
