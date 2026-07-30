@@ -20,6 +20,7 @@ import { Route as AuthenticatedCharactersNewRouteImport } from './routes/_authen
 import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated/chat.index'
 import { Route as AuthenticatedChatChatIdRouteImport } from './routes/_authenticated/chat.$chatId'
 import { Route as AuthenticatedStoriesIndexRouteImport } from './routes/_authenticated/stories.index'
+import { Route as AuthenticatedStoriesStoryIdRouteImport } from './routes/_authenticated/stories.$storyId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -77,6 +78,12 @@ const AuthenticatedStoriesIndexRoute =
     path: '/stories/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedStoriesStoryIdRoute =
+  AuthenticatedStoriesStoryIdRouteImport.update({
+    id: '/stories/$storyId',
+    path: '/stories/$storyId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -87,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/characters/': typeof CharactersIndexRoute
   '/characters/new': typeof AuthenticatedCharactersNewRoute
   '/chat/$chatId': typeof AuthenticatedChatChatIdRoute
+  '/stories/$storyId': typeof AuthenticatedStoriesStoryIdRoute
   '/chat/': typeof AuthenticatedChatIndexRoute
   '/stories/': typeof AuthenticatedStoriesIndexRoute
 }
@@ -99,6 +107,7 @@ export interface FileRoutesByTo {
   '/characters': typeof CharactersIndexRoute
   '/characters/new': typeof AuthenticatedCharactersNewRoute
   '/chat/$chatId': typeof AuthenticatedChatChatIdRoute
+  '/stories/$storyId': typeof AuthenticatedStoriesStoryIdRoute
   '/chat': typeof AuthenticatedChatIndexRoute
   '/stories': typeof AuthenticatedStoriesIndexRoute
 }
@@ -113,6 +122,7 @@ export interface FileRoutesById {
   '/characters/': typeof CharactersIndexRoute
   '/_authenticated/characters/new': typeof AuthenticatedCharactersNewRoute
   '/_authenticated/chat/$chatId': typeof AuthenticatedChatChatIdRoute
+  '/_authenticated/stories/$storyId': typeof AuthenticatedStoriesStoryIdRoute
   '/_authenticated/chat/': typeof AuthenticatedChatIndexRoute
   '/_authenticated/stories/': typeof AuthenticatedStoriesIndexRoute
 }
@@ -127,6 +137,7 @@ export interface FileRouteTypes {
     | '/characters/'
     | '/characters/new'
     | '/chat/$chatId'
+    | '/stories/$storyId'
     | '/chat/'
     | '/stories/'
   fileRoutesByTo: FileRoutesByTo
@@ -139,6 +150,7 @@ export interface FileRouteTypes {
     | '/characters'
     | '/characters/new'
     | '/chat/$chatId'
+    | '/stories/$storyId'
     | '/chat'
     | '/stories'
   id:
@@ -152,6 +164,7 @@ export interface FileRouteTypes {
     | '/characters/'
     | '/_authenticated/characters/new'
     | '/_authenticated/chat/$chatId'
+    | '/_authenticated/stories/$storyId'
     | '/_authenticated/chat/'
     | '/_authenticated/stories/'
   fileRoutesById: FileRoutesById
@@ -245,12 +258,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedStoriesIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/stories/$storyId': {
+      id: '/_authenticated/stories/$storyId'
+      path: '/stories/$storyId'
+      fullPath: '/stories/$storyId'
+      preLoaderRoute: typeof AuthenticatedStoriesStoryIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedCharactersNewRoute: typeof AuthenticatedCharactersNewRoute
   AuthenticatedChatChatIdRoute: typeof AuthenticatedChatChatIdRoute
+  AuthenticatedStoriesStoryIdRoute: typeof AuthenticatedStoriesStoryIdRoute
   AuthenticatedChatIndexRoute: typeof AuthenticatedChatIndexRoute
   AuthenticatedStoriesIndexRoute: typeof AuthenticatedStoriesIndexRoute
 }
@@ -258,6 +279,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCharactersNewRoute: AuthenticatedCharactersNewRoute,
   AuthenticatedChatChatIdRoute: AuthenticatedChatChatIdRoute,
+  AuthenticatedStoriesStoryIdRoute: AuthenticatedStoriesStoryIdRoute,
   AuthenticatedChatIndexRoute: AuthenticatedChatIndexRoute,
   AuthenticatedStoriesIndexRoute: AuthenticatedStoriesIndexRoute,
 }
