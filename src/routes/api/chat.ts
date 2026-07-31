@@ -1,5 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { convertToModelMessages, streamText, type UIMessage } from "ai";
+import {
+  convertToModelMessages,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
+  streamText,
+  type UIMessage,
+} from "ai";
+
 import {
   createLovableAiGatewayProvider,
   getLovableAiGatewayResponseHeaders,
@@ -82,19 +89,75 @@ export const Route = createFileRoute("/api/chat")({
             ? body.creativity
             : 0.9;
 
+        let streamError: unknown = null;
         const result = streamText({
           model,
           temperature,
           system: buildSystemPrompt(body),
           messages: await convertToModelMessages(body.messages as UIMessage[]),
-          onError: ({ error }) => console.error("[chat] stream error", error),
+          onError: ({ error }) => {
+            streamError = error;
+            console.error("[chat] stream error", error);
+          },
         });
 
-        return result.toUIMessageStreamResponse({
+        // Fallback: se o gateway falhar (402/429/etc), entregamos uma resposta
+        // local em vez de quebrar o chat — o usuário pode reenviar depois.
+        const stream = createUIMessageStream({
           originalMessages: body.messages as UIMessage[],
-          headers: getLovableAiGatewayResponseHeaders(undefined, {}),
-          onError: (error) => describeAiError(error),
+          execute: async ({ writer }) => {
+            const textId = crypto.randomUUID();
+            let started = false;
+            const start = () => {
+              if (!started) {
+                writer.write({ type: "text-start", id: textId });
+                started = true;
+              }
+            };
+            try {
+              for await (const delta of result.textStream) {
+                start();
+                writer.write({ type: "text-delta", id: textId, delta });
+              }
+            } catch (error) {
+              streamError = streamError ?? error;
+            }
+
+            if (!streamError) {
+              if (!started) {
+                start();
+                writer.write({
+                  type: "text-delta",
+                  id: textId,
+                  delta: "…",
+                });
+              }
+              writer.write({ type: "text-end", id: textId });
+              return;
+            }
+
+            const reason = describeAiError(streamError);
+            const hadText = started;
+            start();
+            writer.write({
+              type: "text-delta",
+              id: textId,
+              delta: `${hadText ? "\n\n" : ""}⏸️ **A cena está pausada.** ${reason}\n\nNada foi perdido — use “Reenviar” para retomar de onde parou.`,
+            });
+            writer.write({ type: "text-end", id: textId });
+            writer.write({
+              type: "data-fallback",
+              data: { reason, partial: hadText },
+            });
+          },
         });
+
+
+        return createUIMessageStreamResponse({
+          stream,
+          headers: getLovableAiGatewayResponseHeaders(undefined, {}),
+        });
+
 
       },
     },

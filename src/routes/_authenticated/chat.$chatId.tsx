@@ -135,7 +135,9 @@ function ChatSurface({
   useEffect(() => {
     if (status !== "ready") return;
     inputRef.current?.focus();
-    const unsaved = messages.filter((m) => !persistedIds.current.has(m.id));
+    const unsaved = messages.filter(
+      (m) => !persistedIds.current.has(m.id) && !isFallback(m),
+    );
     if (unsaved.length === 0) return;
     unsaved.forEach((m) => persistedIds.current.add(m.id));
     void (async () => {
@@ -165,6 +167,27 @@ function ChatSurface({
     await sendMessage({ text });
   }
 
+  const fallbackMessage = messages.length > 0 && isFallback(messages[messages.length - 1])
+    ? messages[messages.length - 1]
+    : null;
+
+  const fallbackReason =
+    (fallbackMessage?.parts.find((p) => p.type === "data-fallback") as
+      | { data?: { reason?: string } }
+      | undefined)?.data?.reason ?? "A IA não respondeu.";
+
+  async function resend() {
+    if (isLoading || !fallbackMessage) return;
+    const withoutFallback = messages.filter((m) => m.id !== fallbackMessage.id);
+    const lastUser = [...withoutFallback].reverse().find((m) => m.role === "user");
+    if (!lastUser) return;
+    // remove também a última fala do usuário: sendMessage a reinsere
+    setMessages(withoutFallback.filter((m) => m.id !== lastUser.id));
+    persistedIds.current.delete(lastUser.id);
+    await supabase.from("chat_messages").delete().eq("id", lastUser.id);
+    await sendMessage({ text: textOf(lastUser) });
+  }
+
   async function regenerate() {
     const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
     const lastUser = [...messages].reverse().find((m) => m.role === "user");
@@ -177,6 +200,7 @@ function ChatSurface({
     setMessages(trimmed);
     await sendMessage({ text: textOf(lastUser) });
   }
+
 
   return (
     <div className="flex h-screen flex-col">
@@ -232,11 +256,14 @@ function ChatSurface({
                   className={
                     m.role === "user"
                       ? "max-w-[85%] rounded-2xl rounded-br-sm bg-primary/15 px-4 py-3 text-foreground"
-                      : "prose-story max-w-[92%] rounded-2xl rounded-bl-sm bg-card/60 px-5 py-4"
+                      : isFallback(m)
+                        ? "prose-story max-w-[92%] rounded-2xl rounded-bl-sm border border-amber-500/30 bg-amber-500/10 px-5 py-4"
+                        : "prose-story max-w-[92%] rounded-2xl rounded-bl-sm bg-card/60 px-5 py-4"
                   }
                 >
                   <ReactMarkdown>{textOf(m)}</ReactMarkdown>
                 </div>
+
               </div>
             ))}
 
@@ -256,10 +283,22 @@ function ChatSurface({
         </div>
       </div>
 
+      {fallbackMessage && (
+        <div className="border-t border-amber-500/30 bg-amber-500/10 px-4 py-3">
+          <div className="mx-auto flex w-full max-w-3xl items-center gap-3">
+            <p className="min-w-0 flex-1 text-xs text-muted-foreground">{fallbackReason}</p>
+            <Button size="sm" variant="secondary" disabled={isLoading} onClick={() => void resend()}>
+              <RotateCcw className="size-4" /> Reenviar
+            </Button>
+          </div>
+        </div>
+      )}
+
       <form
         onSubmit={submit}
         className="border-t border-border/60 bg-background/85 px-4 py-4 backdrop-blur-xl"
       >
+
         <div className="mx-auto flex w-full max-w-3xl items-end gap-2">
           <Textarea
             ref={inputRef}
@@ -284,7 +323,12 @@ function ChatSurface({
   );
 }
 
+function isFallback(message: UIMessage) {
+  return message.parts.some((part) => part.type === "data-fallback");
+}
+
 function textOf(message: UIMessage) {
+
   return message.parts
     .map((part) => (part.type === "text" ? part.text : ""))
     .join("")
