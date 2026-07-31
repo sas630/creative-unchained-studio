@@ -90,11 +90,44 @@ export const Route = createFileRoute("/api/chat")({
           onError: ({ error }) => console.error("[chat] stream error", error),
         });
 
-        return result.toUIMessageStreamResponse({
+        // Fallback: se o gateway falhar (402/429/etc), entregamos uma resposta
+        // local em vez de quebrar o chat — o usuário pode reenviar depois.
+        const stream = createUIMessageStream({
           originalMessages: body.messages as UIMessage[],
-          headers: getLovableAiGatewayResponseHeaders(undefined, {}),
-          onError: (error) => describeAiError(error),
+          execute: async ({ writer }) => {
+            const textId = crypto.randomUUID();
+            let started = false;
+            try {
+              for await (const delta of result.textStream) {
+                if (!started) {
+                  writer.write({ type: "text-start", id: textId });
+                  started = true;
+                }
+                writer.write({ type: "text-delta", id: textId, delta });
+              }
+              if (started) writer.write({ type: "text-end", id: textId });
+            } catch (error) {
+              const reason = describeAiError(error);
+              if (!started) writer.write({ type: "text-start", id: textId });
+              writer.write({
+                type: "text-delta",
+                id: textId,
+                delta: `${started ? "\n\n" : ""}⏸️ **A cena está pausada.** ${reason}\n\nNada foi perdido: use “Reenviar” para tentar de novo quando quiser.`,
+              });
+              writer.write({ type: "text-end", id: textId });
+              writer.write({
+                type: "data-fallback",
+                data: { reason, partial: started },
+              });
+            }
+          },
         });
+
+        return createUIMessageStreamResponse({
+          stream,
+          headers: getLovableAiGatewayResponseHeaders(undefined, {}),
+        });
+
 
       },
     },
