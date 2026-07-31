@@ -135,7 +135,9 @@ function ChatSurface({
   useEffect(() => {
     if (status !== "ready") return;
     inputRef.current?.focus();
-    const unsaved = messages.filter((m) => !persistedIds.current.has(m.id));
+    const unsaved = messages.filter(
+      (m) => !persistedIds.current.has(m.id) && !isFallback(m),
+    );
     if (unsaved.length === 0) return;
     unsaved.forEach((m) => persistedIds.current.add(m.id));
     void (async () => {
@@ -165,6 +167,27 @@ function ChatSurface({
     await sendMessage({ text });
   }
 
+  const fallbackMessage = messages.length > 0 && isFallback(messages[messages.length - 1])
+    ? messages[messages.length - 1]
+    : null;
+
+  const fallbackReason =
+    (fallbackMessage?.parts.find((p) => p.type === "data-fallback") as
+      | { data?: { reason?: string } }
+      | undefined)?.data?.reason ?? "A IA não respondeu.";
+
+  async function resend() {
+    if (isLoading || !fallbackMessage) return;
+    const withoutFallback = messages.filter((m) => m.id !== fallbackMessage.id);
+    const lastUser = [...withoutFallback].reverse().find((m) => m.role === "user");
+    if (!lastUser) return;
+    // remove também a última fala do usuário: sendMessage a reinsere
+    setMessages(withoutFallback.filter((m) => m.id !== lastUser.id));
+    persistedIds.current.delete(lastUser.id);
+    await supabase.from("chat_messages").delete().eq("id", lastUser.id);
+    await sendMessage({ text: textOf(lastUser) });
+  }
+
   async function regenerate() {
     const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
     const lastUser = [...messages].reverse().find((m) => m.role === "user");
@@ -177,6 +200,7 @@ function ChatSurface({
     setMessages(trimmed);
     await sendMessage({ text: textOf(lastUser) });
   }
+
 
   return (
     <div className="flex h-screen flex-col">
