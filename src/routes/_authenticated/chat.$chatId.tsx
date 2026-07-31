@@ -323,7 +323,12 @@ function ChatSurface({
   );
 }
 
+function isFallback(message: UIMessage) {
+  return message.parts.some((part) => part.type === "data-fallback");
+}
+
 function textOf(message: UIMessage) {
+
   return message.parts
     .map((part) => (part.type === "text" ? part.text : ""))
     .join("")
