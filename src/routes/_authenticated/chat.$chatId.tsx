@@ -283,10 +283,22 @@ function ChatSurface({
         </div>
       </div>
 
+      {fallbackMessage && (
+        <div className="border-t border-amber-500/30 bg-amber-500/10 px-4 py-3">
+          <div className="mx-auto flex w-full max-w-3xl items-center gap-3">
+            <p className="min-w-0 flex-1 text-xs text-muted-foreground">{fallbackReason}</p>
+            <Button size="sm" variant="secondary" disabled={isLoading} onClick={() => void resend()}>
+              <RotateCcw className="size-4" /> Reenviar
+            </Button>
+          </div>
+        </div>
+      )}
+
       <form
         onSubmit={submit}
         className="border-t border-border/60 bg-background/85 px-4 py-4 backdrop-blur-xl"
       >
+
         <div className="mx-auto flex w-full max-w-3xl items-end gap-2">
           <Textarea
             ref={inputRef}
