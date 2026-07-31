@@ -79,7 +79,9 @@ export const Route = createFileRoute("/api/chat")({
         return result.toUIMessageStreamResponse({
           originalMessages: body.messages as UIMessage[],
           headers: getLovableAiGatewayResponseHeaders(undefined, {}),
+          onError: (error) => describeAiError(error),
         });
+
       },
     },
   },
