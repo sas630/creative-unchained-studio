@@ -256,11 +256,14 @@ function ChatSurface({
                   className={
                     m.role === "user"
                       ? "max-w-[85%] rounded-2xl rounded-br-sm bg-primary/15 px-4 py-3 text-foreground"
-                      : "prose-story max-w-[92%] rounded-2xl rounded-bl-sm bg-card/60 px-5 py-4"
+                      : isFallback(m)
+                        ? "prose-story max-w-[92%] rounded-2xl rounded-bl-sm border border-amber-500/30 bg-amber-500/10 px-5 py-4"
+                        : "prose-story max-w-[92%] rounded-2xl rounded-bl-sm bg-card/60 px-5 py-4"
                   }
                 >
                   <ReactMarkdown>{textOf(m)}</ReactMarkdown>
                 </div>
+
               </div>
             ))}
 
