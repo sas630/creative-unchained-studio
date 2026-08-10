@@ -144,8 +144,10 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthSync queryClient={queryClient} />
+      <BackendStatusBanner />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+
       <Toaster />
     </QueryClientProvider>
   );
