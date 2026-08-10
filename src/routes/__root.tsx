@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
+import { BackendStatusBanner } from "@/components/BackendStatusBanner";
 import { supabase } from "@/integrations/supabase/client";
 
 function NotFoundComponent() {
