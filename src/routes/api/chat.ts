@@ -9,10 +9,13 @@ import {
 
 import {
   createLovableAiGatewayProvider,
+  createOpenRouterProvider,
   getLovableAiGatewayResponseHeaders,
   getLovableAiGatewayRunId,
+  normalizeUserApiKey,
   requireLovableApiKey,
   resolveModelId,
+  resolveOpenRouterModelId,
 } from "@/lib/ai-gateway.server";
 
 type CharacterInfo = {
@@ -29,7 +32,10 @@ type ChatBody = {
   creativity?: number;
   styleInstructions?: string | null;
   userName?: string | null;
+  openrouterKey?: string | null;
+  openrouterModel?: string | null;
 };
+
 
 function buildSystemPrompt(body: ChatBody) {
   const c = body.character ?? null;
@@ -55,7 +61,7 @@ export function describeAiError(error: unknown) {
     error instanceof Error ? error.message : typeof error === "string" ? error : "";
   const status = (error as { statusCode?: number } | null)?.statusCode;
   if (status === 402 || /payment required/i.test(raw)) {
-    return "Os créditos de IA do projeto acabaram. Adicione créditos no workspace para continuar a cena.";
+    return "Os créditos de IA do projeto acabaram. Cole sua chave gratuita do OpenRouter em Ajustes para conversar sem limites.";
   }
   if (status === 429 || /rate limit/i.test(raw)) {
     return "Muitas mensagens em pouco tempo. Espere alguns segundos e tente de novo.";
@@ -73,36 +79,62 @@ export const Route = createFileRoute("/api/chat")({
           return new Response("Messages are required", { status: 400 });
         }
 
-        let key: string;
+        const userKey = normalizeUserApiKey(body.openrouterKey);
+        let lovableKey: string | null = null;
         try {
-          key = requireLovableApiKey();
+          lovableKey = requireLovableApiKey();
         } catch {
-          return new Response("Missing LOVABLE_API_KEY", { status: 500 });
+          lovableKey = null;
+        }
+        if (!userKey && !lovableKey) {
+          return new Response("Missing AI credentials", { status: 500 });
         }
 
         const initialRunId = getLovableAiGatewayRunId(request);
-        const gateway = createLovableAiGatewayProvider(key, initialRunId);
-        const model = gateway(resolveModelId(body.model));
-
         const temperature =
           typeof body.creativity === "number" && body.creativity >= 0 && body.creativity <= 2
             ? body.creativity
             : 0.9;
+        const system = buildSystemPrompt(body);
+        const modelMessages = await convertToModelMessages(body.messages as UIMessage[]);
 
-        let streamError: unknown = null;
-        const result = streamText({
-          model,
-          temperature,
-          system: buildSystemPrompt(body),
-          messages: await convertToModelMessages(body.messages as UIMessage[]),
-          onError: ({ error }) => {
-            streamError = error;
-            console.error("[chat] stream error", error);
-          },
-        });
+        // Ordem das tentativas: chave própria do usuário (OpenRouter, sem gastar
+        // créditos do workspace) e, se falhar, o gateway da Lovable.
+        type Attempt = { label: string; run: () => ReturnType<typeof streamText> };
+        const attempts: Attempt[] = [];
+        if (userKey) {
+          attempts.push({
+            label: "openrouter",
+            run: () => {
+              const provider = createOpenRouterProvider(userKey);
+              return streamText({
+                model: provider(resolveOpenRouterModelId(body.openrouterModel)),
+                temperature,
+                system,
+                messages: modelMessages,
+                onError: ({ error }) => console.error("[chat] openrouter error", error),
+              });
+            },
+          });
+        }
+        if (lovableKey) {
+          attempts.push({
+            label: "lovable",
+            run: () => {
+              const gateway = createLovableAiGatewayProvider(lovableKey!, initialRunId);
+              return streamText({
+                model: gateway(resolveModelId(body.model)),
+                temperature,
+                system,
+                messages: modelMessages,
+                onError: ({ error }) => console.error("[chat] gateway error", error),
+              });
+            },
+          });
+        }
 
-        // Fallback: se o gateway falhar (402/429/etc), entregamos uma resposta
-        // local em vez de quebrar o chat — o usuário pode reenviar depois.
+        // Fallback: se todas as tentativas falharem (402/429/etc), entregamos uma
+        // resposta local em vez de quebrar o chat — o usuário pode reenviar depois.
         const stream = createUIMessageStream({
           originalMessages: body.messages as UIMessage[],
           execute: async ({ writer }) => {
@@ -114,29 +146,34 @@ export const Route = createFileRoute("/api/chat")({
                 started = true;
               }
             };
-            try {
-              for await (const delta of result.textStream) {
-                start();
-                writer.write({ type: "text-delta", id: textId, delta });
+
+            let lastError: unknown = null;
+            for (const attempt of attempts) {
+              lastError = null;
+              try {
+                for await (const delta of attempt.run().textStream) {
+                  start();
+                  writer.write({ type: "text-delta", id: textId, delta });
+                }
+              } catch (error) {
+                lastError = error;
+                console.error(`[chat] ${attempt.label} falhou`, error);
               }
-            } catch (error) {
-              streamError = streamError ?? error;
+              if (!lastError) break;
+              // se já streamou texto parcial, não tenta outro provedor
+              if (started) break;
             }
 
-            if (!streamError) {
+            if (!lastError) {
               if (!started) {
                 start();
-                writer.write({
-                  type: "text-delta",
-                  id: textId,
-                  delta: "…",
-                });
+                writer.write({ type: "text-delta", id: textId, delta: "…" });
               }
               writer.write({ type: "text-end", id: textId });
               return;
             }
 
-            const reason = describeAiError(streamError);
+            const reason = describeAiError(lastError);
             const hadText = started;
             start();
             writer.write({
@@ -151,6 +188,7 @@ export const Route = createFileRoute("/api/chat")({
             });
           },
         });
+
 
 
         return createUIMessageStreamResponse({

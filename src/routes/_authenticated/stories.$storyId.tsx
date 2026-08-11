@@ -148,6 +148,9 @@ function StoryEditor() {
           styleInstructions: data.story.style_instructions ?? data.profile?.style_instructions,
           model: data.profile?.default_model,
           creativity: data.profile?.creativity,
+          openrouterKey: data.profile?.openrouter_api_key,
+          openrouterModel: data.profile?.openrouter_model,
+
         }),
       });
       if (!response.ok || !response.body) {

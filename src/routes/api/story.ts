@@ -2,9 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { streamText } from "ai";
 import {
   createLovableAiGatewayProvider,
+  createOpenRouterProvider,
   getLovableAiGatewayRunId,
+  normalizeUserApiKey,
   requireLovableApiKey,
   resolveModelId,
+  resolveOpenRouterModelId,
 } from "@/lib/ai-gateway.server";
 
 type StoryAction = "continue" | "rewrite" | "expand" | "describe";
@@ -21,7 +24,10 @@ type StoryBody = {
   plotNotes?: string;
   model?: string;
   creativity?: number;
+  openrouterKey?: string | null;
+  openrouterModel?: string | null;
 };
+
 
 const ACTION_PROMPTS: Record<StoryAction, string> = {
   continue:
@@ -41,15 +47,17 @@ export const Route = createFileRoute("/api/story")({
         const body = (await request.json()) as StoryBody;
         const action: StoryAction = body.action ?? "continue";
 
-        let key: string;
+        const userKey = normalizeUserApiKey(body.openrouterKey);
+        let lovableKey: string | null = null;
         try {
-          key = requireLovableApiKey();
+          lovableKey = requireLovableApiKey();
         } catch {
-          return new Response("Missing LOVABLE_API_KEY", { status: 500 });
+          lovableKey = null;
+        }
+        if (!userKey && !lovableKey) {
+          return new Response("Missing AI credentials", { status: 500 });
         }
 
-        const gateway = createLovableAiGatewayProvider(key, getLovableAiGatewayRunId(request));
-        const model = gateway(resolveModelId(body.model));
 
         const system = [
           "Você é um coautor de ficção literária. Escreva prosa de alta qualidade, com voz consistente e ritmo natural.",
@@ -71,18 +79,65 @@ export const Route = createFileRoute("/api/story")({
           .filter(Boolean)
           .join("\n\n");
 
-        const result = streamText({
-          model,
-          system,
-          temperature:
-            typeof body.creativity === "number" && body.creativity >= 0 && body.creativity <= 2
-              ? body.creativity
-              : 0.9,
-          prompt: context || "Comece uma história original.",
-          onError: ({ error }) => console.error("[story] stream error", error),
+        const temperature =
+          typeof body.creativity === "number" && body.creativity >= 0 && body.creativity <= 2
+            ? body.creativity
+            : 0.9;
+        const prompt = context || "Comece uma história original.";
+
+        const run = (which: "openrouter" | "lovable") => {
+          const model =
+            which === "openrouter"
+              ? createOpenRouterProvider(userKey!)(resolveOpenRouterModelId(body.openrouterModel))
+              : createLovableAiGatewayProvider(
+                  lovableKey!,
+                  getLovableAiGatewayRunId(request),
+                )(resolveModelId(body.model));
+          return streamText({
+            model,
+            system,
+            temperature,
+            prompt,
+            onError: ({ error }) => console.error(`[story] ${which} error`, error),
+          });
+        };
+
+        // Tenta a chave do usuário (sem gastar créditos) e cai para o gateway se falhar.
+        const order: Array<"openrouter" | "lovable"> = [
+          ...(userKey ? (["openrouter"] as const) : []),
+          ...(lovableKey ? (["lovable"] as const) : []),
+        ];
+
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream<Uint8Array>({
+          async start(controller) {
+            let lastError: unknown = null;
+            let emitted = false;
+            for (const which of order) {
+              lastError = null;
+              try {
+                for await (const delta of run(which).textStream) {
+                  emitted = true;
+                  controller.enqueue(encoder.encode(delta));
+                }
+              } catch (error) {
+                lastError = error;
+                console.error(`[story] ${which} falhou`, error);
+              }
+              if (!lastError || emitted) break;
+            }
+            if (lastError && !emitted) {
+              controller.error(lastError);
+              return;
+            }
+            controller.close();
+          },
         });
 
-        return result.toTextStreamResponse();
+        return new Response(stream, {
+          headers: { "Content-Type": "text/plain; charset=utf-8" },
+        });
+
       },
     },
   },

@@ -122,3 +122,35 @@ export function resolveModelId(candidate: unknown): string {
     ? candidate
     : "google/gemini-3.6-flash";
 }
+
+// ---- OpenRouter (chave do próprio usuário: não consome créditos do workspace) ----
+
+export const OPENROUTER_MODELS = [
+  "deepseek/deepseek-chat-v3-0324:free",
+  "deepseek/deepseek-r1:free",
+  "meta-llama/llama-3.3-70b-instruct:free",
+  "mistralai/mistral-nemo:free",
+  "google/gemma-3-27b-it:free",
+] as const;
+
+export function resolveOpenRouterModelId(candidate: unknown): string {
+  return typeof candidate === "string" && candidate.trim().length > 0
+    ? candidate.trim()
+    : OPENROUTER_MODELS[0];
+}
+
+export function createOpenRouterProvider(apiKey: string) {
+  return createOpenAICompatible({
+    name: "openrouter",
+    baseURL: "https://openrouter.ai/api/v1",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "X-Title": "Lumen",
+    },
+  });
+}
+
+export function normalizeUserApiKey(candidate: unknown): string | null {
+  return typeof candidate === "string" && candidate.trim().length > 10 ? candidate.trim() : null;
+}
+

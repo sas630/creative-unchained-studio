@@ -97,7 +97,14 @@ function ChatSurface({
   title: string;
   snapshot: Snapshot | null;
   initialMessages: UIMessage[];
-  profile: { display_name: string | null; default_model: string; creativity: number; style_instructions: string | null } | null;
+  profile: {
+    display_name: string | null;
+    default_model: string;
+    creativity: number;
+    style_instructions: string | null;
+    openrouter_api_key?: string | null;
+    openrouter_model?: string | null;
+  } | null;
 }) {
   const [input, setInput] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -114,10 +121,13 @@ function ChatSurface({
           creativity: profile?.creativity,
           styleInstructions: profile?.style_instructions,
           userName: profile?.display_name,
+          openrouterKey: profile?.openrouter_api_key,
+          openrouterModel: profile?.openrouter_model,
         },
       }),
     [snapshot, profile],
   );
+
 
   const { messages, sendMessage, status, setMessages } = useChat({
     id: chatId,

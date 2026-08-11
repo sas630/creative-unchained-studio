@@ -144,6 +144,8 @@ export type Database = {
           default_model: string
           display_name: string | null
           id: string
+          openrouter_api_key: string | null
+          openrouter_model: string | null
           style_instructions: string | null
           updated_at: string
         }
@@ -155,6 +157,8 @@ export type Database = {
           default_model?: string
           display_name?: string | null
           id: string
+          openrouter_api_key?: string | null
+          openrouter_model?: string | null
           style_instructions?: string | null
           updated_at?: string
         }
@@ -166,6 +170,8 @@ export type Database = {
           default_model?: string
           display_name?: string | null
           id?: string
+          openrouter_api_key?: string | null
+          openrouter_model?: string | null
           style_instructions?: string | null
           updated_at?: string
         }
