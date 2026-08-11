@@ -61,7 +61,7 @@ export function describeAiError(error: unknown) {
     error instanceof Error ? error.message : typeof error === "string" ? error : "";
   const status = (error as { statusCode?: number } | null)?.statusCode;
   if (status === 402 || /payment required/i.test(raw)) {
-    return "Os créditos de IA do projeto acabaram. Adicione créditos no workspace para continuar a cena.";
+    return "Os créditos de IA do projeto acabaram. Cole sua chave gratuita do OpenRouter em Ajustes para conversar sem limites.";
   }
   if (status === 429 || /rate limit/i.test(raw)) {
     return "Muitas mensagens em pouco tempo. Espere alguns segundos e tente de novo.";
