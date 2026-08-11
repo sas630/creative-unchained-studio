@@ -36,12 +36,22 @@ const MODELS = [
   { id: "openai/gpt-5.5", label: "Lumen Máximo — o mais capaz" },
 ];
 
+const FREE_MODELS = [
+  { id: "deepseek/deepseek-chat-v3-0324:free", label: "DeepSeek V3 — grátis, ótimo em roleplay" },
+  { id: "deepseek/deepseek-r1:free", label: "DeepSeek R1 — grátis, raciocina mais" },
+  { id: "meta-llama/llama-3.3-70b-instruct:free", label: "Llama 3.3 70B — grátis, prosa solta" },
+  { id: "mistralai/mistral-nemo:free", label: "Mistral Nemo — grátis, rápido" },
+  { id: "google/gemma-3-27b-it:free", label: "Gemma 3 27B — grátis, leve" },
+];
+
 function SettingsPage() {
   const queryClient = useQueryClient();
   const [displayName, setDisplayName] = useState("");
   const [model, setModel] = useState(MODELS[0].id);
   const [creativity, setCreativity] = useState(0.9);
   const [style, setStyle] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const [freeModel, setFreeModel] = useState(FREE_MODELS[0].id);
   const [busy, setBusy] = useState(false);
 
   const { data } = useQuery({
@@ -59,6 +69,8 @@ function SettingsPage() {
     setModel(data.default_model);
     setCreativity(Number(data.creativity));
     setStyle(data.style_instructions ?? "");
+    setApiKey(data.openrouter_api_key ?? "");
+    setFreeModel(data.openrouter_model ?? FREE_MODELS[0].id);
   }, [data]);
 
   async function save() {
@@ -72,6 +84,8 @@ function SettingsPage() {
         default_model: model,
         creativity,
         style_instructions: style || null,
+        openrouter_api_key: apiKey.trim() || null,
+        openrouter_model: freeModel,
       })
       .eq("id", auth.user.id);
     setBusy(false);
@@ -82,6 +96,7 @@ function SettingsPage() {
     toast.success("Ajustes salvos");
     void queryClient.invalidateQueries({ queryKey: ["profile"] });
   }
+
 
   return (
     <div className="min-h-screen">
