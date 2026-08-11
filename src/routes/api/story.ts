@@ -47,15 +47,17 @@ export const Route = createFileRoute("/api/story")({
         const body = (await request.json()) as StoryBody;
         const action: StoryAction = body.action ?? "continue";
 
-        let key: string;
+        const userKey = normalizeUserApiKey(body.openrouterKey);
+        let lovableKey: string | null = null;
         try {
-          key = requireLovableApiKey();
+          lovableKey = requireLovableApiKey();
         } catch {
-          return new Response("Missing LOVABLE_API_KEY", { status: 500 });
+          lovableKey = null;
+        }
+        if (!userKey && !lovableKey) {
+          return new Response("Missing AI credentials", { status: 500 });
         }
 
-        const gateway = createLovableAiGatewayProvider(key, getLovableAiGatewayRunId(request));
-        const model = gateway(resolveModelId(body.model));
 
         const system = [
           "Você é um coautor de ficção literária. Escreva prosa de alta qualidade, com voz consistente e ritmo natural.",
