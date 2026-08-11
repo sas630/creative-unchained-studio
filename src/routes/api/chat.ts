@@ -9,10 +9,13 @@ import {
 
 import {
   createLovableAiGatewayProvider,
+  createOpenRouterProvider,
   getLovableAiGatewayResponseHeaders,
   getLovableAiGatewayRunId,
+  normalizeUserApiKey,
   requireLovableApiKey,
   resolveModelId,
+  resolveOpenRouterModelId,
 } from "@/lib/ai-gateway.server";
 
 type CharacterInfo = {
@@ -29,7 +32,10 @@ type ChatBody = {
   creativity?: number;
   styleInstructions?: string | null;
   userName?: string | null;
+  openrouterKey?: string | null;
+  openrouterModel?: string | null;
 };
+
 
 function buildSystemPrompt(body: ChatBody) {
   const c = body.character ?? null;
