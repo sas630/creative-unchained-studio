@@ -2,9 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { streamText } from "ai";
 import {
   createLovableAiGatewayProvider,
+  createOpenRouterProvider,
   getLovableAiGatewayRunId,
+  normalizeUserApiKey,
   requireLovableApiKey,
   resolveModelId,
+  resolveOpenRouterModelId,
 } from "@/lib/ai-gateway.server";
 
 type StoryAction = "continue" | "rewrite" | "expand" | "describe";
@@ -21,7 +24,10 @@ type StoryBody = {
   plotNotes?: string;
   model?: string;
   creativity?: number;
+  openrouterKey?: string | null;
+  openrouterModel?: string | null;
 };
+
 
 const ACTION_PROMPTS: Record<StoryAction, string> = {
   continue:
