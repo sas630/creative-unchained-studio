@@ -100,19 +100,25 @@ export const Route = createFileRoute("/api/chat")({
 
         // Ordem das tentativas: chave própria do usuário (OpenRouter, sem gastar
         // créditos do workspace) e, se falhar, o gateway da Lovable.
-        type Attempt = { label: string; run: () => ReturnType<typeof streamText> };
+        type Attempt = {
+          label: string;
+          run: (onError: (error: unknown) => void) => ReturnType<typeof streamText>;
+        };
         const attempts: Attempt[] = [];
         if (userKey) {
           attempts.push({
             label: "openrouter",
-            run: () => {
+            run: (onErr) => {
               const provider = createOpenRouterProvider(userKey);
               return streamText({
                 model: provider(resolveOpenRouterModelId(body.openrouterModel)),
                 temperature,
                 system,
                 messages: modelMessages,
-                onError: ({ error }) => console.error("[chat] openrouter error", error),
+                onError: ({ error }) => {
+                  console.error("[chat] openrouter error", error);
+                  onErr(error);
+                },
               });
             },
           });
@@ -120,14 +126,17 @@ export const Route = createFileRoute("/api/chat")({
         if (lovableKey) {
           attempts.push({
             label: "lovable",
-            run: () => {
+            run: (onErr) => {
               const gateway = createLovableAiGatewayProvider(lovableKey!, initialRunId);
               return streamText({
                 model: gateway(resolveModelId(body.model)),
                 temperature,
                 system,
                 messages: modelMessages,
-                onError: ({ error }) => console.error("[chat] gateway error", error),
+                onError: ({ error }) => {
+                  console.error("[chat] gateway error", error);
+                  onErr(error);
+                },
               });
             },
           });
@@ -150,28 +159,40 @@ export const Route = createFileRoute("/api/chat")({
             let lastError: unknown = null;
             for (const attempt of attempts) {
               lastError = null;
+              // streamText não lança: erros de provedor chegam por onError.
+              let streamError: unknown = null;
+              let chars = 0;
               try {
-                for await (const delta of attempt.run().textStream) {
+                for await (const delta of attempt.run((e) => {
+                  streamError = e;
+                }).textStream) {
+                  if (!delta) continue;
                   start();
+                  chars += delta.length;
                   writer.write({ type: "text-delta", id: textId, delta });
                 }
               } catch (error) {
-                lastError = error;
-                console.error(`[chat] ${attempt.label} falhou`, error);
+                streamError = error;
+              }
+              if (streamError) {
+                lastError = streamError;
+                console.error(`[chat] ${attempt.label} falhou`, streamError);
+              } else if (chars === 0) {
+                lastError = new Error(
+                  `O provedor (${attempt.label}) respondeu vazio. Tente outro modelo.`,
+                );
+                console.error(`[chat] ${attempt.label} respondeu vazio`);
               }
               if (!lastError) break;
               // se já streamou texto parcial, não tenta outro provedor
-              if (started) break;
+              if (chars > 0) break;
             }
 
             if (!lastError) {
-              if (!started) {
-                start();
-                writer.write({ type: "text-delta", id: textId, delta: "…" });
-              }
               writer.write({ type: "text-end", id: textId });
               return;
             }
+
 
             const reason = describeAiError(lastError);
             const hadText = started;
