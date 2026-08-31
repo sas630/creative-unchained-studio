@@ -102,16 +102,21 @@ export const Route = createFileRoute("/api/chat")({
         // créditos do workspace) e, se falhar, o gateway da Lovable.
         type Attempt = {
           label: string;
+          provider: string;
+          modelId: string;
           run: (onError: (error: unknown) => void) => ReturnType<typeof streamText>;
         };
         const attempts: Attempt[] = [];
         if (userKey) {
+          const modelId = resolveOpenRouterModelId(body.openrouterModel);
           attempts.push({
             label: "openrouter",
+            provider: "Sua chave (OpenRouter)",
+            modelId,
             run: (onErr) => {
               const provider = createOpenRouterProvider(userKey);
               return streamText({
-                model: provider(resolveOpenRouterModelId(body.openrouterModel)),
+                model: provider(modelId),
                 temperature,
                 system,
                 messages: modelMessages,
@@ -124,12 +129,15 @@ export const Route = createFileRoute("/api/chat")({
           });
         }
         if (lovableKey) {
+          const modelId = resolveModelId(body.model);
           attempts.push({
             label: "lovable",
+            provider: "Modelo do app (Lovable AI)",
+            modelId,
             run: (onErr) => {
               const gateway = createLovableAiGatewayProvider(lovableKey!, initialRunId);
               return streamText({
-                model: gateway(resolveModelId(body.model)),
+                model: gateway(modelId),
                 temperature,
                 system,
                 messages: modelMessages,
@@ -141,6 +149,7 @@ export const Route = createFileRoute("/api/chat")({
             },
           });
         }
+
 
         // Fallback: se todas as tentativas falharem (402/429/etc), entregamos uma
         // resposta local em vez de quebrar o chat — o usuário pode reenviar depois.
