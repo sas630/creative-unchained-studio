@@ -269,8 +269,9 @@ export const Route = createFileRoute("/api/chat")({
             writer.write({ type: "text-end", id: textId });
             writer.write({
               type: "data-fallback",
-              data: { reason, partial: hadText },
+              data: { reason, partial: hadText, raw: rawReason(lastError) },
             });
+
           },
         });
 
