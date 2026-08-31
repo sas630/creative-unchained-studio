@@ -308,14 +308,38 @@ function ChatSurface({
               </div>
             ))}
 
-            {status === "submitted" && (
+            {(status === "submitted" || attempts.length > 0) && (
               <div className="flex justify-start">
-                <div className="rounded-2xl bg-card/60 px-5 py-4 text-sm text-muted-foreground">
-                  <span className="inline-flex gap-1">
-                    <span className="animate-pulse">●</span>
-                    <span className="animate-pulse [animation-delay:150ms]">●</span>
-                    <span className="animate-pulse [animation-delay:300ms]">●</span>
-                  </span>
+                <div className="max-w-[92%] rounded-2xl bg-card/60 px-5 py-4 text-sm text-muted-foreground">
+                  {status === "submitted" && (
+                    <span className="inline-flex gap-1">
+                      <span className="animate-pulse">●</span>
+                      <span className="animate-pulse [animation-delay:150ms]">●</span>
+                      <span className="animate-pulse [animation-delay:300ms]">●</span>
+                    </span>
+                  )}
+                  {attempts.length > 0 && (
+                    <ul className="mt-2 space-y-1 font-mono text-[11px] leading-relaxed">
+                      {attempts.map((a, i) => (
+                        <li
+                          key={`${a.index}-${a.phase}-${i}`}
+                          className={a.phase === "error" ? "text-amber-300" : ""}
+                        >
+                          <span className="text-foreground/70">
+                            [{a.index}/{a.total}] {a.fallback ? "fallback → " : ""}
+                            {a.provider} · {a.model}
+                          </span>{" "}
+                          {a.phase === "start" && "conectando…"}
+                          {a.phase === "first-token" && `1º token em ${a.ms} ms`}
+                          {a.phase === "done" && `ok · ${a.chars} chars · ${a.ms} ms`}
+                          {a.phase === "error" &&
+                            `falhou${a.status ? ` (HTTP ${a.status})` : ""} em ${a.ms} ms — ${a.error}${
+                              a.willFallback ? " · tentando o próximo provedor…" : ""
+                            }`}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               </div>
             )}
@@ -327,13 +351,21 @@ function ChatSurface({
       {fallbackMessage && (
         <div className="border-t border-amber-500/30 bg-amber-500/10 px-4 py-3">
           <div className="mx-auto flex w-full max-w-3xl items-center gap-3">
-            <p className="min-w-0 flex-1 text-xs text-muted-foreground">{fallbackReason}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-muted-foreground">{fallbackReason}</p>
+              {fallbackRaw && fallbackRaw !== fallbackReason && (
+                <p className="mt-1 break-words font-mono text-[11px] text-amber-300/80">
+                  {fallbackRaw}
+                </p>
+              )}
+            </div>
             <Button size="sm" variant="secondary" disabled={isLoading} onClick={() => void resend()}>
               <RotateCcw className="size-4" /> Reenviar
             </Button>
           </div>
         </div>
       )}
+
 
       <form
         onSubmit={submit}
