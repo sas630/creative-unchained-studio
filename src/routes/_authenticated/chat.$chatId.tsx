@@ -129,14 +129,27 @@ function ChatSurface({
   );
 
 
+  const [attempts, setAttempts] = useState<AttemptEvent[]>([]);
+
   const { messages, sendMessage, status, setMessages } = useChat({
     id: chatId,
     messages: initialMessages,
     transport,
+    onData: (part) => {
+      if (part.type !== "data-attempt") return;
+      const data = part.data as AttemptEvent;
+      setAttempts((prev) => {
+        const next = prev.filter(
+          (a) => !(a.index === data.index && (a.phase === "start" || data.phase !== "first-token")),
+        );
+        return [...next, data];
+      });
+    },
     onError: (error) => toast.error(error.message || "A IA não respondeu. Tente de novo."),
   });
 
   const isLoading = status === "submitted" || status === "streaming";
+
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
