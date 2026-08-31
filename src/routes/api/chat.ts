@@ -165,17 +165,50 @@ export const Route = createFileRoute("/api/chat")({
               }
             };
 
+            const rawReason = (error: unknown) =>
+              error instanceof Error ? error.message : typeof error === "string" ? error : String(error);
+
             let lastError: unknown = null;
-            for (const attempt of attempts) {
+            for (const [index, attempt] of attempts.entries()) {
               lastError = null;
+              const t0 = Date.now();
+              writer.write({
+                type: "data-attempt",
+                transient: true,
+                data: {
+                  phase: "start" as const,
+                  provider: attempt.provider,
+                  model: attempt.modelId,
+                  index: index + 1,
+                  total: attempts.length,
+                  fallback: index > 0,
+                },
+              });
               // streamText não lança: erros de provedor chegam por onError.
               let streamError: unknown = null;
               let chars = 0;
+              let firstByteMs: number | null = null;
               try {
                 for await (const delta of attempt.run((e) => {
                   streamError = e;
                 }).textStream) {
                   if (!delta) continue;
+                  if (firstByteMs === null) {
+                    firstByteMs = Date.now() - t0;
+                    writer.write({
+                      type: "data-attempt",
+                      transient: true,
+                      data: {
+                        phase: "first-token" as const,
+                        provider: attempt.provider,
+                        model: attempt.modelId,
+                        index: index + 1,
+                        total: attempts.length,
+                        fallback: index > 0,
+                        ms: firstByteMs,
+                      },
+                    });
+                  }
                   start();
                   chars += delta.length;
                   writer.write({ type: "text-delta", id: textId, delta });
@@ -192,10 +225,32 @@ export const Route = createFileRoute("/api/chat")({
                 );
                 console.error(`[chat] ${attempt.label} respondeu vazio`);
               }
+              writer.write({
+                type: "data-attempt",
+                transient: true,
+                data: {
+                  phase: lastError ? ("error" as const) : ("done" as const),
+                  provider: attempt.provider,
+                  model: attempt.modelId,
+                  index: index + 1,
+                  total: attempts.length,
+                  fallback: index > 0,
+                  ms: Date.now() - t0,
+                  chars,
+                  ...(lastError
+                    ? {
+                        error: rawReason(lastError),
+                        status: (lastError as { statusCode?: number } | null)?.statusCode ?? null,
+                        willFallback: chars === 0 && index < attempts.length - 1,
+                      }
+                    : {}),
+                },
+              });
               if (!lastError) break;
               // se já streamou texto parcial, não tenta outro provedor
               if (chars > 0) break;
             }
+
 
             if (!lastError) {
               writer.write({ type: "text-end", id: textId });
