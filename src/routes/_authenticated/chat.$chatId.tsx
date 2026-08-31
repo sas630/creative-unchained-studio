@@ -202,6 +202,7 @@ function ChatSurface({
     const text = input.trim();
     if (!text || isLoading) return;
     setInput("");
+    setAttempts([]);
     await sendMessage({ text });
   }
 
@@ -209,10 +210,12 @@ function ChatSurface({
     ? messages[messages.length - 1]
     : null;
 
-  const fallbackReason =
-    (fallbackMessage?.parts.find((p) => p.type === "data-fallback") as
-      | { data?: { reason?: string } }
-      | undefined)?.data?.reason ?? "A IA não respondeu.";
+  const fallbackData = (fallbackMessage?.parts.find((p) => p.type === "data-fallback") as
+    | { data?: { reason?: string; raw?: string } }
+    | undefined)?.data;
+  const fallbackReason = fallbackData?.reason ?? "A IA não respondeu.";
+  const fallbackRaw = fallbackData?.raw;
+
 
   async function resend() {
     if (isLoading || !fallbackMessage) return;
