@@ -32,6 +32,21 @@ type Snapshot = {
   accent?: string | null;
 };
 
+type AttemptEvent = {
+  phase: "start" | "first-token" | "done" | "error";
+  provider: string;
+  model: string;
+  index: number;
+  total: number;
+  fallback: boolean;
+  ms?: number;
+  chars?: number;
+  error?: string;
+  status?: number | null;
+  willFallback?: boolean;
+};
+
+
 function ChatRoom() {
   const { chatId } = Route.useParams();
 
