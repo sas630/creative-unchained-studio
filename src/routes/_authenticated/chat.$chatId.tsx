@@ -121,7 +121,10 @@ function ChatSurface({
     openrouter_model?: string | null;
   } | null;
 }) {
+  const navigate = useNavigate();
   const [input, setInput] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const persistedIds = useRef(new Set(initialMessages.map((m) => m.id)));
