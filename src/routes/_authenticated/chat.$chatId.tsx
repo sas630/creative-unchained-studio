@@ -245,6 +245,77 @@ function ChatSurface({
     await sendMessage({ text: textOf(lastUser) });
   }
 
+  async function removeRows(list: UIMessage[]) {
+    for (const m of list) {
+      persistedIds.current.delete(m.id);
+      const text = textOf(m);
+      if (!text) continue;
+      await supabase
+        .from("chat_messages")
+        .delete()
+        .eq("chat_id", chatId)
+        .eq("role", m.role)
+        .eq("content", text);
+    }
+  }
+
+  async function deleteMessage(target: UIMessage) {
+    if (isLoading) return;
+    setMessages(messages.filter((m) => m.id !== target.id));
+    await removeRows([target]);
+  }
+
+  async function saveEdit(target: UIMessage) {
+    const text = editText.trim();
+    if (!text || isLoading) return;
+    const index = messages.findIndex((m) => m.id === target.id);
+    if (index < 0) return;
+    const tail = messages.slice(index);
+    setEditingId(null);
+    setEditText("");
+    setMessages(messages.slice(0, index));
+    setAttempts([]);
+    await removeRows(tail);
+    await sendMessage({ text });
+  }
+
+  async function branchFrom(target: UIMessage) {
+    if (isLoading) return;
+    const index = messages.findIndex((m) => m.id === target.id);
+    if (index < 0) return;
+    const kept = messages.slice(0, index + 1).filter((m) => !isFallback(m) && textOf(m));
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) return;
+    const { data: chat, error } = await supabase
+      .from("chats")
+      .insert({
+        user_id: auth.user.id,
+        title: `${title} (ramificação)`,
+        character_snapshot: snapshot as never,
+      })
+      .select("id")
+      .single();
+    if (error || !chat) {
+      toast.error(error?.message ?? "Não foi possível ramificar.");
+      return;
+    }
+    if (kept.length > 0) {
+      const { error: msgError } = await supabase.from("chat_messages").insert(
+        kept.map((m) => ({
+          chat_id: chat.id,
+          user_id: auth.user!.id,
+          role: m.role,
+          content: textOf(m),
+        })),
+      );
+      if (msgError) {
+        toast.error(msgError.message);
+        return;
+      }
+    }
+    toast.success("Ramificação criada. Continue a cena daqui.");
+    void navigate({ to: "/chat/$chatId", params: { chatId: chat.id } });
+  }
 
   return (
     <div className="flex h-screen flex-col">
