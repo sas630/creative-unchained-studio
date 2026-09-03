@@ -365,20 +365,82 @@ function ChatSurface({
             {messages.map((m) => (
               <div
                 key={m.id}
-                className={m.role === "user" ? "flex justify-end" : "flex justify-start"}
+                className={`group flex flex-col gap-1 ${m.role === "user" ? "items-end" : "items-start"}`}
               >
-                <div
-                  className={
-                    m.role === "user"
-                      ? "max-w-[85%] rounded-2xl rounded-br-sm bg-primary/15 px-4 py-3 text-foreground"
-                      : isFallback(m)
-                        ? "prose-story max-w-[92%] rounded-2xl rounded-bl-sm border border-amber-500/30 bg-amber-500/10 px-5 py-4"
-                        : "prose-story max-w-[92%] rounded-2xl rounded-bl-sm bg-card/60 px-5 py-4"
-                  }
-                >
-                  <ReactMarkdown>{textOf(m)}</ReactMarkdown>
-                </div>
+                {editingId === m.id ? (
+                  <div className="w-full max-w-[92%] space-y-2">
+                    <Textarea
+                      value={editText}
+                      onChange={(e) => setEditText(e.target.value)}
+                      rows={3}
+                      className="resize-none"
+                      autoFocus
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
+                        <X className="size-4" /> Cancelar
+                      </Button>
+                      <Button size="sm" onClick={() => void saveEdit(m)}>
+                        <Check className="size-4" /> Salvar e reenviar
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className={
+                      m.role === "user"
+                        ? "max-w-[85%] rounded-2xl rounded-br-sm bg-primary/15 px-4 py-3 text-foreground"
+                        : isFallback(m)
+                          ? "prose-story max-w-[92%] rounded-2xl rounded-bl-sm border border-amber-500/30 bg-amber-500/10 px-5 py-4"
+                          : "prose-story max-w-[92%] rounded-2xl rounded-bl-sm bg-card/60 px-5 py-4"
+                    }
+                  >
+                    <ReactMarkdown>{textOf(m)}</ReactMarkdown>
+                  </div>
+                )}
 
+                {editingId !== m.id && (
+                  <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-7 text-muted-foreground"
+                      title="Ramificar a partir daqui"
+                      aria-label="Ramificar a partir daqui"
+                      disabled={isLoading}
+                      onClick={() => void branchFrom(m)}
+                    >
+                      <GitBranch className="size-3.5" />
+                    </Button>
+                    {m.role === "user" && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-7 text-muted-foreground"
+                        title="Editar e reenviar"
+                        aria-label="Editar e reenviar"
+                        disabled={isLoading}
+                        onClick={() => {
+                          setEditingId(m.id);
+                          setEditText(textOf(m));
+                        }}
+                      >
+                        <Pencil className="size-3.5" />
+                      </Button>
+                    )}
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-7 text-muted-foreground hover:text-destructive"
+                      title="Apagar mensagem"
+                      aria-label="Apagar mensagem"
+                      disabled={isLoading}
+                      onClick={() => void deleteMessage(m)}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                )}
               </div>
             ))}
 
