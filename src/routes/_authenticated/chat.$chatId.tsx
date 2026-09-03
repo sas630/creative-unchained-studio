@@ -1,10 +1,10 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, RotateCcw, Send } from "lucide-react";
+import { ArrowLeft, Check, GitBranch, Pencil, RotateCcw, Send, Trash2, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
 import { CharacterAvatar } from "@/components/CharacterCard";
@@ -121,7 +121,10 @@ function ChatSurface({
     openrouter_model?: string | null;
   } | null;
 }) {
+  const navigate = useNavigate();
   const [input, setInput] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const persistedIds = useRef(new Set(initialMessages.map((m) => m.id)));
@@ -242,6 +245,77 @@ function ChatSurface({
     await sendMessage({ text: textOf(lastUser) });
   }
 
+  async function removeRows(list: UIMessage[]) {
+    for (const m of list) {
+      persistedIds.current.delete(m.id);
+      const text = textOf(m);
+      if (!text) continue;
+      await supabase
+        .from("chat_messages")
+        .delete()
+        .eq("chat_id", chatId)
+        .eq("role", m.role)
+        .eq("content", text);
+    }
+  }
+
+  async function deleteMessage(target: UIMessage) {
+    if (isLoading) return;
+    setMessages(messages.filter((m) => m.id !== target.id));
+    await removeRows([target]);
+  }
+
+  async function saveEdit(target: UIMessage) {
+    const text = editText.trim();
+    if (!text || isLoading) return;
+    const index = messages.findIndex((m) => m.id === target.id);
+    if (index < 0) return;
+    const tail = messages.slice(index);
+    setEditingId(null);
+    setEditText("");
+    setMessages(messages.slice(0, index));
+    setAttempts([]);
+    await removeRows(tail);
+    await sendMessage({ text });
+  }
+
+  async function branchFrom(target: UIMessage) {
+    if (isLoading) return;
+    const index = messages.findIndex((m) => m.id === target.id);
+    if (index < 0) return;
+    const kept = messages.slice(0, index + 1).filter((m) => !isFallback(m) && textOf(m));
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) return;
+    const { data: chat, error } = await supabase
+      .from("chats")
+      .insert({
+        user_id: auth.user.id,
+        title: `${title} (ramificação)`,
+        character_snapshot: snapshot as never,
+      })
+      .select("id")
+      .single();
+    if (error || !chat) {
+      toast.error(error?.message ?? "Não foi possível ramificar.");
+      return;
+    }
+    if (kept.length > 0) {
+      const { error: msgError } = await supabase.from("chat_messages").insert(
+        kept.map((m) => ({
+          chat_id: chat.id,
+          user_id: auth.user!.id,
+          role: m.role,
+          content: textOf(m),
+        })),
+      );
+      if (msgError) {
+        toast.error(msgError.message);
+        return;
+      }
+    }
+    toast.success("Ramificação criada. Continue a cena daqui.");
+    void navigate({ to: "/chat/$chatId", params: { chatId: chat.id } });
+  }
 
   return (
     <div className="flex h-screen flex-col">
@@ -291,20 +365,82 @@ function ChatSurface({
             {messages.map((m) => (
               <div
                 key={m.id}
-                className={m.role === "user" ? "flex justify-end" : "flex justify-start"}
+                className={`group flex flex-col gap-1 ${m.role === "user" ? "items-end" : "items-start"}`}
               >
-                <div
-                  className={
-                    m.role === "user"
-                      ? "max-w-[85%] rounded-2xl rounded-br-sm bg-primary/15 px-4 py-3 text-foreground"
-                      : isFallback(m)
-                        ? "prose-story max-w-[92%] rounded-2xl rounded-bl-sm border border-amber-500/30 bg-amber-500/10 px-5 py-4"
-                        : "prose-story max-w-[92%] rounded-2xl rounded-bl-sm bg-card/60 px-5 py-4"
-                  }
-                >
-                  <ReactMarkdown>{textOf(m)}</ReactMarkdown>
-                </div>
+                {editingId === m.id ? (
+                  <div className="w-full max-w-[92%] space-y-2">
+                    <Textarea
+                      value={editText}
+                      onChange={(e) => setEditText(e.target.value)}
+                      rows={3}
+                      className="resize-none"
+                      autoFocus
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
+                        <X className="size-4" /> Cancelar
+                      </Button>
+                      <Button size="sm" onClick={() => void saveEdit(m)}>
+                        <Check className="size-4" /> Salvar e reenviar
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className={
+                      m.role === "user"
+                        ? "max-w-[85%] rounded-2xl rounded-br-sm bg-primary/15 px-4 py-3 text-foreground"
+                        : isFallback(m)
+                          ? "prose-story max-w-[92%] rounded-2xl rounded-bl-sm border border-amber-500/30 bg-amber-500/10 px-5 py-4"
+                          : "prose-story max-w-[92%] rounded-2xl rounded-bl-sm bg-card/60 px-5 py-4"
+                    }
+                  >
+                    <ReactMarkdown>{textOf(m)}</ReactMarkdown>
+                  </div>
+                )}
 
+                {editingId !== m.id && (
+                  <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-7 text-muted-foreground"
+                      title="Ramificar a partir daqui"
+                      aria-label="Ramificar a partir daqui"
+                      disabled={isLoading}
+                      onClick={() => void branchFrom(m)}
+                    >
+                      <GitBranch className="size-3.5" />
+                    </Button>
+                    {m.role === "user" && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-7 text-muted-foreground"
+                        title="Editar e reenviar"
+                        aria-label="Editar e reenviar"
+                        disabled={isLoading}
+                        onClick={() => {
+                          setEditingId(m.id);
+                          setEditText(textOf(m));
+                        }}
+                      >
+                        <Pencil className="size-3.5" />
+                      </Button>
+                    )}
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-7 text-muted-foreground hover:text-destructive"
+                      title="Apagar mensagem"
+                      aria-label="Apagar mensagem"
+                      disabled={isLoading}
+                      onClick={() => void deleteMessage(m)}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                )}
               </div>
             ))}
 
