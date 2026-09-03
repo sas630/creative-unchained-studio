@@ -148,6 +148,12 @@ export type Database = {
           openrouter_model: string | null
           style_instructions: string | null
           updated_at: string
+          voice_enabled: boolean
+          voice_examples: Json
+          voice_source_chat: string | null
+          voice_source_label: string | null
+          voice_style: string | null
+          voice_trained_at: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -161,6 +167,12 @@ export type Database = {
           openrouter_model?: string | null
           style_instructions?: string | null
           updated_at?: string
+          voice_enabled?: boolean
+          voice_examples?: Json
+          voice_source_chat?: string | null
+          voice_source_label?: string | null
+          voice_style?: string | null
+          voice_trained_at?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -174,6 +186,12 @@ export type Database = {
           openrouter_model?: string | null
           style_instructions?: string | null
           updated_at?: string
+          voice_enabled?: boolean
+          voice_examples?: Json
+          voice_source_chat?: string | null
+          voice_source_label?: string | null
+          voice_style?: string | null
+          voice_trained_at?: string | null
         }
         Relationships: []
       }
