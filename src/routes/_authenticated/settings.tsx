@@ -217,58 +217,10 @@ function SettingsPage() {
             <p className="text-xs text-muted-foreground">
               {geminiKeys.trim()
                 ? `${geminiKeys.trim().split(/[\s,;]+/).filter((k) => k.length > 10).length} chave(s) ativa(s) — suas cenas rodam de graça, com troca automática.`
-                : "Sem chaves aqui, o app tenta o modelo interno (que depende dos créditos do projeto)."}
+                : "Sem chaves aqui o chat não funciona: cole pelo menos uma chave grátis do Gemini."}
             </p>
           </div>
 
-          <div className="space-y-4 rounded-2xl border border-border/70 bg-card/40 p-5">
-            <div>
-              <Label htmlFor="orkey" className="text-base">
-                Alternativa: chave do OpenRouter (opcional)
-              </Label>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Com uma chave própria do OpenRouter as mensagens não consomem nada do app. Crie
-                grátis em{" "}
-                <a
-                  href="https://openrouter.ai/keys"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-primary hover:underline"
-                >
-                  openrouter.ai/keys
-                </a>
-                , cole abaixo e escolha um modelo gratuito.
-              </p>
-            </div>
-            <Input
-              id="orkey"
-              type="password"
-              autoComplete="off"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="sk-or-v1-..."
-            />
-            <div className="space-y-2">
-              <Label>Modelo gratuito</Label>
-              <Select value={freeModel} onValueChange={setFreeModel}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {FREE_MODELS.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {apiKey.trim()
-                ? "Ativa: suas cenas usam sua chave primeiro e só caem no modelo do app se ela falhar."
-                : "Sem chave, as cenas usam o modelo do app (sujeito aos créditos do projeto)."}
-            </p>
-          </div>
 
 
 
