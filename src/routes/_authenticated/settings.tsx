@@ -36,14 +36,6 @@ const MODELS = [
   { id: "openai/gpt-5.5", label: "Lumen Máximo — o mais capaz" },
 ];
 
-const FREE_MODELS = [
-  { id: "deepseek/deepseek-chat-v3-0324:free", label: "DeepSeek V3 — grátis, ótimo em roleplay" },
-  { id: "deepseek/deepseek-r1:free", label: "DeepSeek R1 — grátis, raciocina mais" },
-  { id: "meta-llama/llama-3.3-70b-instruct:free", label: "Llama 3.3 70B — grátis, prosa solta" },
-  { id: "mistralai/mistral-nemo:free", label: "Mistral Nemo — grátis, rápido" },
-  { id: "google/gemma-3-27b-it:free", label: "Gemma 3 27B — grátis, leve" },
-];
-
 const GEMINI_MODELS = [
   { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash — grátis, equilibrado" },
   { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite — grátis, o mais rápido" },
@@ -57,8 +49,6 @@ function SettingsPage() {
   const [model, setModel] = useState(MODELS[0].id);
   const [creativity, setCreativity] = useState(0.9);
   const [style, setStyle] = useState("");
-  const [apiKey, setApiKey] = useState("");
-  const [freeModel, setFreeModel] = useState(FREE_MODELS[0].id);
   const [geminiKeys, setGeminiKeys] = useState("");
   const [geminiModel, setGeminiModel] = useState(GEMINI_MODELS[0].id);
   const [busy, setBusy] = useState(false);
@@ -78,8 +68,6 @@ function SettingsPage() {
     setModel(data.default_model);
     setCreativity(Number(data.creativity));
     setStyle(data.style_instructions ?? "");
-    setApiKey(data.openrouter_api_key ?? "");
-    setFreeModel(data.openrouter_model ?? FREE_MODELS[0].id);
     setGeminiKeys(data.gemini_api_keys ?? "");
     setGeminiModel(data.gemini_model ?? GEMINI_MODELS[0].id);
   }, [data]);
@@ -95,8 +83,6 @@ function SettingsPage() {
         default_model: model,
         creativity,
         style_instructions: style || null,
-        openrouter_api_key: apiKey.trim() || null,
-        openrouter_model: freeModel,
         gemini_api_keys: geminiKeys.trim() || null,
         gemini_model: geminiModel,
       })
