@@ -8,12 +8,15 @@ import {
 } from "ai";
 
 import {
+  createGeminiProvider,
   createLovableAiGatewayProvider,
   createOpenRouterProvider,
   getLovableAiGatewayResponseHeaders,
   getLovableAiGatewayRunId,
   normalizeUserApiKey,
+  parseApiKeyList,
   requireLovableApiKey,
+  resolveGeminiModelId,
   resolveModelId,
   resolveOpenRouterModelId,
 } from "@/lib/ai-gateway.server";
