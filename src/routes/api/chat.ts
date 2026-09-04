@@ -85,13 +85,14 @@ export const Route = createFileRoute("/api/chat")({
         }
 
         const userKey = normalizeUserApiKey(body.openrouterKey);
+        const geminiKeys = parseApiKeyList(body.geminiKeys);
         let lovableKey: string | null = null;
         try {
           lovableKey = requireLovableApiKey();
         } catch {
           lovableKey = null;
         }
-        if (!userKey && !lovableKey) {
+        if (!userKey && geminiKeys.length === 0 && !lovableKey) {
           return new Response("Missing AI credentials", { status: 500 });
         }
 
