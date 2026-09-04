@@ -37,6 +37,8 @@ type ChatBody = {
   userName?: string | null;
   openrouterKey?: string | null;
   openrouterModel?: string | null;
+  geminiKeys?: string | null;
+  geminiModel?: string | null;
 };
 
 
