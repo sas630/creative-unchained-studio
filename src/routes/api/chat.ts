@@ -8,12 +8,15 @@ import {
 } from "ai";
 
 import {
+  createGeminiProvider,
   createLovableAiGatewayProvider,
   createOpenRouterProvider,
   getLovableAiGatewayResponseHeaders,
   getLovableAiGatewayRunId,
   normalizeUserApiKey,
+  parseApiKeyList,
   requireLovableApiKey,
+  resolveGeminiModelId,
   resolveModelId,
   resolveOpenRouterModelId,
 } from "@/lib/ai-gateway.server";
@@ -34,6 +37,8 @@ type ChatBody = {
   userName?: string | null;
   openrouterKey?: string | null;
   openrouterModel?: string | null;
+  geminiKeys?: string | null;
+  geminiModel?: string | null;
 };
 
 
@@ -61,7 +66,7 @@ export function describeAiError(error: unknown) {
     error instanceof Error ? error.message : typeof error === "string" ? error : "";
   const status = (error as { statusCode?: number } | null)?.statusCode;
   if (status === 402 || /payment required/i.test(raw)) {
-    return "Os créditos de IA do projeto acabaram. Cole sua chave gratuita do OpenRouter em Ajustes para conversar sem limites.";
+    return "Os créditos de IA do app acabaram. Cole uma ou mais chaves grátis do Google Gemini em Ajustes (aistudio.google.com/apikey) para conversar sem limites.";
   }
   if (status === 429 || /rate limit/i.test(raw)) {
     return "Muitas mensagens em pouco tempo. Espere alguns segundos e tente de novo.";
@@ -80,13 +85,14 @@ export const Route = createFileRoute("/api/chat")({
         }
 
         const userKey = normalizeUserApiKey(body.openrouterKey);
+        const geminiKeys = parseApiKeyList(body.geminiKeys);
         let lovableKey: string | null = null;
         try {
           lovableKey = requireLovableApiKey();
         } catch {
           lovableKey = null;
         }
-        if (!userKey && !lovableKey) {
+        if (!userKey && geminiKeys.length === 0 && !lovableKey) {
           return new Response("Missing AI credentials", { status: 500 });
         }
 
@@ -107,6 +113,29 @@ export const Route = createFileRoute("/api/chat")({
           run: (onError: (error: unknown) => void) => ReturnType<typeof streamText>;
         };
         const attempts: Attempt[] = [];
+        // Chaves grátis do Google Gemini: cada chave é uma tentativa, então se uma
+        // bater no limite diário a próxima assume automaticamente.
+        const geminiModelId = resolveGeminiModelId(body.geminiModel);
+        geminiKeys.forEach((key, i) => {
+          attempts.push({
+            label: `gemini#${i + 1}`,
+            provider: `Gemini grátis (chave ${i + 1}/${geminiKeys.length})`,
+            modelId: geminiModelId,
+            run: (onErr) => {
+              const provider = createGeminiProvider(key);
+              return streamText({
+                model: provider(geminiModelId),
+                temperature,
+                system,
+                messages: modelMessages,
+                onError: ({ error }) => {
+                  console.error("[chat] gemini error", error);
+                  onErr(error);
+                },
+              });
+            },
+          });
+        });
         if (userKey) {
           const modelId = resolveOpenRouterModelId(body.openrouterModel);
           attempts.push({

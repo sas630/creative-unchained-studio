@@ -154,3 +154,39 @@ export function normalizeUserApiKey(candidate: unknown): string | null {
   return typeof candidate === "string" && candidate.trim().length > 10 ? candidate.trim() : null;
 }
 
+// ---- Google AI Studio (Gemini) com chaves do próprio usuário: cota gratuita ----
+
+export const GEMINI_MODELS = [
+  "gemini-2.5-flash",
+  "gemini-2.5-flash-lite",
+  "gemini-2.0-flash",
+  "gemini-2.5-pro",
+] as const;
+
+export function resolveGeminiModelId(candidate: unknown): string {
+  return typeof candidate === "string" && candidate.trim().length > 0
+    ? candidate.trim()
+    : GEMINI_MODELS[0];
+}
+
+/** Aceita várias chaves separadas por linha, vírgula, ponto-e-vírgula ou espaço. */
+export function parseApiKeyList(candidate: unknown): string[] {
+  if (typeof candidate !== "string") return [];
+  const seen = new Set<string>();
+  for (const raw of candidate.split(/[\s,;]+/)) {
+    const key = raw.trim();
+    if (key.length > 10) seen.add(key);
+  }
+  return Array.from(seen);
+}
+
+export function createGeminiProvider(apiKey: string) {
+  return createOpenAICompatible({
+    name: "gemini",
+    baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
+  });
+}
+

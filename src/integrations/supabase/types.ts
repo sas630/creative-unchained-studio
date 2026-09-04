@@ -143,6 +143,8 @@ export type Database = {
           creativity: number
           default_model: string
           display_name: string | null
+          gemini_api_keys: string | null
+          gemini_model: string | null
           id: string
           openrouter_api_key: string | null
           openrouter_model: string | null
@@ -162,6 +164,8 @@ export type Database = {
           creativity?: number
           default_model?: string
           display_name?: string | null
+          gemini_api_keys?: string | null
+          gemini_model?: string | null
           id: string
           openrouter_api_key?: string | null
           openrouter_model?: string | null
@@ -181,6 +185,8 @@ export type Database = {
           creativity?: number
           default_model?: string
           display_name?: string | null
+          gemini_api_keys?: string | null
+          gemini_model?: string | null
           id?: string
           openrouter_api_key?: string | null
           openrouter_model?: string | null
