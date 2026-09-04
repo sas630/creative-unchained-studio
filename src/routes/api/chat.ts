@@ -113,6 +113,29 @@ export const Route = createFileRoute("/api/chat")({
           run: (onError: (error: unknown) => void) => ReturnType<typeof streamText>;
         };
         const attempts: Attempt[] = [];
+        // Chaves grátis do Google Gemini: cada chave é uma tentativa, então se uma
+        // bater no limite diário a próxima assume automaticamente.
+        const geminiModelId = resolveGeminiModelId(body.geminiModel);
+        geminiKeys.forEach((key, i) => {
+          attempts.push({
+            label: `gemini#${i + 1}`,
+            provider: `Gemini grátis (chave ${i + 1}/${geminiKeys.length})`,
+            modelId: geminiModelId,
+            run: (onErr) => {
+              const provider = createGeminiProvider(key);
+              return streamText({
+                model: provider(geminiModelId),
+                temperature,
+                system,
+                messages: modelMessages,
+                onError: ({ error }) => {
+                  console.error("[chat] gemini error", error);
+                  onErr(error);
+                },
+              });
+            },
+          });
+        });
         if (userKey) {
           const modelId = resolveOpenRouterModelId(body.openrouterModel);
           attempts.push({
