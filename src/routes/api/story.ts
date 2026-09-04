@@ -3,14 +3,11 @@ import { streamText } from "ai";
 import {
   createGeminiProvider,
   createLovableAiGatewayProvider,
-  createOpenRouterProvider,
   getLovableAiGatewayRunId,
-  normalizeUserApiKey,
   requireLovableApiKey,
   parseApiKeyList,
   resolveGeminiModelId,
   resolveModelId,
-  resolveOpenRouterModelId,
 } from "@/lib/ai-gateway.server";
 
 type StoryAction = "continue" | "rewrite" | "expand" | "describe";
@@ -27,8 +24,6 @@ type StoryBody = {
   plotNotes?: string;
   model?: string;
   creativity?: number;
-  openrouterKey?: string | null;
-  openrouterModel?: string | null;
   geminiKeys?: string | null;
   geminiModel?: string | null;
 };
@@ -52,7 +47,6 @@ export const Route = createFileRoute("/api/story")({
         const body = (await request.json()) as StoryBody;
         const action: StoryAction = body.action ?? "continue";
 
-        const userKey = normalizeUserApiKey(body.openrouterKey);
         const geminiKeys = parseApiKeyList(body.geminiKeys);
         let lovableKey: string | null = null;
         try {
@@ -60,7 +54,7 @@ export const Route = createFileRoute("/api/story")({
         } catch {
           lovableKey = null;
         }
-        if (!userKey && geminiKeys.length === 0 && !lovableKey) {
+        if (geminiKeys.length === 0 && !lovableKey) {
           return new Response("Missing AI credentials", { status: 500 });
         }
 
@@ -98,15 +92,6 @@ export const Route = createFileRoute("/api/story")({
             label: `gemini#${i + 1}`,
             model: () => createGeminiProvider(key)(geminiModelId),
           })),
-          ...(userKey
-            ? [
-                {
-                  label: "openrouter",
-                  model: () =>
-                    createOpenRouterProvider(userKey)(resolveOpenRouterModelId(body.openrouterModel)),
-                },
-              ]
-            : []),
           ...(lovableKey
             ? [
                 {

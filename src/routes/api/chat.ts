@@ -9,16 +9,9 @@ import {
 
 import {
   createGeminiProvider,
-  createLovableAiGatewayProvider,
-  createOpenRouterProvider,
   getLovableAiGatewayResponseHeaders,
-  getLovableAiGatewayRunId,
-  normalizeUserApiKey,
   parseApiKeyList,
-  requireLovableApiKey,
   resolveGeminiModelId,
-  resolveModelId,
-  resolveOpenRouterModelId,
 } from "@/lib/ai-gateway.server";
 
 type CharacterInfo = {
@@ -31,12 +24,9 @@ type CharacterInfo = {
 type ChatBody = {
   messages?: unknown;
   character?: CharacterInfo | null;
-  model?: string;
   creativity?: number;
   styleInstructions?: string | null;
   userName?: string | null;
-  openrouterKey?: string | null;
-  openrouterModel?: string | null;
   geminiKeys?: string | null;
   geminiModel?: string | null;
 };
@@ -66,7 +56,7 @@ export function describeAiError(error: unknown) {
     error instanceof Error ? error.message : typeof error === "string" ? error : "";
   const status = (error as { statusCode?: number } | null)?.statusCode;
   if (status === 402 || /payment required/i.test(raw)) {
-    return "Os créditos de IA do app acabaram. Cole uma ou mais chaves grátis do Google Gemini em Ajustes (aistudio.google.com/apikey) para conversar sem limites.";
+    return "A chave usada não tem cota. Adicione outra chave grátis do Google Gemini em Ajustes (aistudio.google.com/apikey).";
   }
   if (status === 429 || /rate limit/i.test(raw)) {
     return "Muitas mensagens em pouco tempo. Espere alguns segundos e tente de novo.";
@@ -84,19 +74,7 @@ export const Route = createFileRoute("/api/chat")({
           return new Response("Messages are required", { status: 400 });
         }
 
-        const userKey = normalizeUserApiKey(body.openrouterKey);
         const geminiKeys = parseApiKeyList(body.geminiKeys);
-        let lovableKey: string | null = null;
-        try {
-          lovableKey = requireLovableApiKey();
-        } catch {
-          lovableKey = null;
-        }
-        if (!userKey && geminiKeys.length === 0 && !lovableKey) {
-          return new Response("Missing AI credentials", { status: 500 });
-        }
-
-        const initialRunId = getLovableAiGatewayRunId(request);
         const temperature =
           typeof body.creativity === "number" && body.creativity >= 0 && body.creativity <= 2
             ? body.creativity
@@ -104,8 +82,7 @@ export const Route = createFileRoute("/api/chat")({
         const system = buildSystemPrompt(body);
         const modelMessages = await convertToModelMessages(body.messages as UIMessage[]);
 
-        // Ordem das tentativas: chave própria do usuário (OpenRouter, sem gastar
-        // créditos do workspace) e, se falhar, o gateway da Lovable.
+        // Só chaves grátis do Google Gemini: cada chave é uma tentativa.
         type Attempt = {
           label: string;
           provider: string;
@@ -136,50 +113,6 @@ export const Route = createFileRoute("/api/chat")({
             },
           });
         });
-        if (userKey) {
-          const modelId = resolveOpenRouterModelId(body.openrouterModel);
-          attempts.push({
-            label: "openrouter",
-            provider: "Sua chave (OpenRouter)",
-            modelId,
-            run: (onErr) => {
-              const provider = createOpenRouterProvider(userKey);
-              return streamText({
-                model: provider(modelId),
-                temperature,
-                system,
-                messages: modelMessages,
-                onError: ({ error }) => {
-                  console.error("[chat] openrouter error", error);
-                  onErr(error);
-                },
-              });
-            },
-          });
-        }
-        if (lovableKey) {
-          const modelId = resolveModelId(body.model);
-          attempts.push({
-            label: "lovable",
-            provider: "Modelo do app (Lovable AI)",
-            modelId,
-            run: (onErr) => {
-              const gateway = createLovableAiGatewayProvider(lovableKey!, initialRunId);
-              return streamText({
-                model: gateway(modelId),
-                temperature,
-                system,
-                messages: modelMessages,
-                onError: ({ error }) => {
-                  console.error("[chat] gateway error", error);
-                  onErr(error);
-                },
-              });
-            },
-          });
-        }
-
-
         // Fallback: se todas as tentativas falharem (402/429/etc), entregamos uma
         // resposta local em vez de quebrar o chat — o usuário pode reenviar depois.
         const stream = createUIMessageStream({
