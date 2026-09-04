@@ -1,11 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { streamText } from "ai";
 import {
+  createGeminiProvider,
   createLovableAiGatewayProvider,
   createOpenRouterProvider,
   getLovableAiGatewayRunId,
   normalizeUserApiKey,
   requireLovableApiKey,
+  parseApiKeyList,
+  resolveGeminiModelId,
   resolveModelId,
   resolveOpenRouterModelId,
 } from "@/lib/ai-gateway.server";
@@ -26,6 +29,8 @@ type StoryBody = {
   creativity?: number;
   openrouterKey?: string | null;
   openrouterModel?: string | null;
+  geminiKeys?: string | null;
+  geminiModel?: string | null;
 };
 
 
@@ -48,13 +53,14 @@ export const Route = createFileRoute("/api/story")({
         const action: StoryAction = body.action ?? "continue";
 
         const userKey = normalizeUserApiKey(body.openrouterKey);
+        const geminiKeys = parseApiKeyList(body.geminiKeys);
         let lovableKey: string | null = null;
         try {
           lovableKey = requireLovableApiKey();
         } catch {
           lovableKey = null;
         }
-        if (!userKey && !lovableKey) {
+        if (!userKey && geminiKeys.length === 0 && !lovableKey) {
           return new Response("Missing AI credentials", { status: 500 });
         }
 
@@ -85,44 +91,60 @@ export const Route = createFileRoute("/api/story")({
             : 0.9;
         const prompt = context || "Comece uma história original.";
 
-        const run = (which: "openrouter" | "lovable") => {
-          const model =
-            which === "openrouter"
-              ? createOpenRouterProvider(userKey!)(resolveOpenRouterModelId(body.openrouterModel))
-              : createLovableAiGatewayProvider(
-                  lovableKey!,
-                  getLovableAiGatewayRunId(request),
-                )(resolveModelId(body.model));
-          return streamText({
-            model,
+        type Source = { label: string; model: () => Parameters<typeof streamText>[0]["model"] };
+        const geminiModelId = resolveGeminiModelId(body.geminiModel);
+        const sources: Source[] = [
+          ...geminiKeys.map((key, i) => ({
+            label: `gemini#${i + 1}`,
+            model: () => createGeminiProvider(key)(geminiModelId),
+          })),
+          ...(userKey
+            ? [
+                {
+                  label: "openrouter",
+                  model: () =>
+                    createOpenRouterProvider(userKey)(resolveOpenRouterModelId(body.openrouterModel)),
+                },
+              ]
+            : []),
+          ...(lovableKey
+            ? [
+                {
+                  label: "lovable",
+                  model: () =>
+                    createLovableAiGatewayProvider(
+                      lovableKey!,
+                      getLovableAiGatewayRunId(request),
+                    )(resolveModelId(body.model)),
+                },
+              ]
+            : []),
+        ];
+
+        const run = (source: Source) =>
+          streamText({
+            model: source.model(),
             system,
             temperature,
             prompt,
-            onError: ({ error }) => console.error(`[story] ${which} error`, error),
+            onError: ({ error }) => console.error(`[story] ${source.label} error`, error),
           });
-        };
-
-        // Tenta a chave do usuário (sem gastar créditos) e cai para o gateway se falhar.
-        const order: Array<"openrouter" | "lovable"> = [
-          ...(userKey ? (["openrouter"] as const) : []),
-          ...(lovableKey ? (["lovable"] as const) : []),
-        ];
 
         const encoder = new TextEncoder();
         const stream = new ReadableStream<Uint8Array>({
           async start(controller) {
             let lastError: unknown = null;
             let emitted = false;
-            for (const which of order) {
+            for (const source of sources) {
               lastError = null;
               try {
-                for await (const delta of run(which).textStream) {
+                for await (const delta of run(source).textStream) {
                   emitted = true;
                   controller.enqueue(encoder.encode(delta));
                 }
               } catch (error) {
                 lastError = error;
-                console.error(`[story] ${which} falhou`, error);
+                console.error(`[story] ${source.label} falhou`, error);
               }
               if (!lastError || emitted) break;
             }
