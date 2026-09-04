@@ -150,6 +150,8 @@ function StoryEditor() {
           creativity: data.profile?.creativity,
           openrouterKey: data.profile?.openrouter_api_key,
           openrouterModel: data.profile?.openrouter_model,
+          geminiKeys: data.profile?.gemini_api_keys,
+          geminiModel: data.profile?.gemini_model,
 
         }),
       });

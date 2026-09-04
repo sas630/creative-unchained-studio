@@ -44,6 +44,13 @@ const FREE_MODELS = [
   { id: "google/gemma-3-27b-it:free", label: "Gemma 3 27B — grátis, leve" },
 ];
 
+const GEMINI_MODELS = [
+  { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash — grátis, equilibrado" },
+  { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite — grátis, o mais rápido" },
+  { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash — grátis, estável" },
+  { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro — grátis, prosa mais rica" },
+];
+
 function SettingsPage() {
   const queryClient = useQueryClient();
   const [displayName, setDisplayName] = useState("");
@@ -52,6 +59,8 @@ function SettingsPage() {
   const [style, setStyle] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [freeModel, setFreeModel] = useState(FREE_MODELS[0].id);
+  const [geminiKeys, setGeminiKeys] = useState("");
+  const [geminiModel, setGeminiModel] = useState(GEMINI_MODELS[0].id);
   const [busy, setBusy] = useState(false);
 
   const { data } = useQuery({
@@ -71,6 +80,8 @@ function SettingsPage() {
     setStyle(data.style_instructions ?? "");
     setApiKey(data.openrouter_api_key ?? "");
     setFreeModel(data.openrouter_model ?? FREE_MODELS[0].id);
+    setGeminiKeys(data.gemini_api_keys ?? "");
+    setGeminiModel(data.gemini_model ?? GEMINI_MODELS[0].id);
   }, [data]);
 
   async function save() {
@@ -86,6 +97,8 @@ function SettingsPage() {
         style_instructions: style || null,
         openrouter_api_key: apiKey.trim() || null,
         openrouter_model: freeModel,
+        gemini_api_keys: geminiKeys.trim() || null,
+        gemini_model: geminiModel,
       })
       .eq("id", auth.user.id);
     setBusy(false);
@@ -157,10 +170,61 @@ function SettingsPage() {
             />
           </div>
 
+          <div className="space-y-4 rounded-2xl border border-primary/40 bg-card/60 p-5">
+            <div>
+              <Label htmlFor="gkeys" className="text-base">
+                Chaves grátis do Google Gemini (recomendado)
+              </Label>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Crie chaves gratuitas em{" "}
+                <a
+                  href="https://aistudio.google.com/apikey"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  aistudio.google.com/apikey
+                </a>{" "}
+                e cole abaixo — uma por linha. Pode colar várias: quando uma bate no limite
+                diário, o app troca para a próxima automaticamente, então a conversa nunca para.
+              </p>
+            </div>
+            <Textarea
+              id="gkeys"
+              rows={4}
+              spellCheck={false}
+              autoComplete="off"
+              className="font-mono text-xs"
+              value={geminiKeys}
+              onChange={(e) => setGeminiKeys(e.target.value)}
+              placeholder={"AIza...\nAIza...\nAIza..."}
+            />
+            <div className="space-y-2">
+              <Label>Modelo Gemini</Label>
+              <Select value={geminiModel} onValueChange={setGeminiModel}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {GEMINI_MODELS.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {geminiKeys.trim()
+                ? `${geminiKeys.trim().split(/[\s,;]+/).filter((k) => k.length > 10).length} chave(s) ativa(s) — suas cenas rodam de graça, com troca automática.`
+                : "Sem chaves aqui, o app tenta o modelo interno (que depende dos créditos do projeto)."}
+            </p>
+          </div>
+
           <div className="space-y-4 rounded-2xl border border-border/70 bg-card/40 p-5">
             <div>
               <Label htmlFor="orkey" className="text-base">
-                Sua chave de IA (ilimitada e grátis)
+                Alternativa: chave do OpenRouter (opcional)
               </Label>
               <p className="mt-1 text-xs text-muted-foreground">
                 Com uma chave própria do OpenRouter as mensagens não consomem nada do app. Crie
