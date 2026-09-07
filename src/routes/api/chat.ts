@@ -112,6 +112,7 @@ export const Route = createFileRoute("/api/chat")({
                 const provider = createGeminiProvider(key);
                 return streamText({
                   model: provider(modelId),
+                  maxRetries: 1,
                   temperature,
                   system,
                   messages: modelMessages,
