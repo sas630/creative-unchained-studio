@@ -117,8 +117,6 @@ function ChatSurface({
     default_model: string;
     creativity: number;
     style_instructions: string | null;
-    openrouter_api_key?: string | null;
-    openrouter_model?: string | null;
     gemini_api_keys?: string | null;
     gemini_model?: string | null;
   } | null;
@@ -141,8 +139,6 @@ function ChatSurface({
           creativity: profile?.creativity,
           styleInstructions: profile?.style_instructions,
           userName: profile?.display_name,
-          openrouterKey: profile?.openrouter_api_key,
-          openrouterModel: profile?.openrouter_model,
           geminiKeys: profile?.gemini_api_keys,
           geminiModel: profile?.gemini_model,
         },

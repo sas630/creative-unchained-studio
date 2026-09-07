@@ -75,6 +75,13 @@ export const Route = createFileRoute("/api/chat")({
         }
 
         const geminiKeys = parseApiKeyList(body.geminiKeys);
+        if (geminiKeys.length === 0) {
+          return new Response(
+            "Adicione pelo menos uma chave grátis do Google Gemini em Ajustes.",
+            { status: 400 },
+          );
+        }
+
         const temperature =
           typeof body.creativity === "number" && body.creativity >= 0 && body.creativity <= 2
             ? body.creativity
