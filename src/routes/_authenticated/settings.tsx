@@ -37,10 +37,10 @@ const MODELS = [
 ];
 
 const GEMINI_MODELS = [
-  { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash — grátis, equilibrado" },
-  { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite — grátis, o mais rápido" },
-  { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash — grátis, estável" },
-  { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro — grátis, prosa mais rica" },
+  { id: "gemini-3-flash-preview", label: "Gemini 3 Flash — grátis, equilibrado" },
+  { id: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite — grátis, o mais rápido" },
+  { id: "gemini-flash-latest", label: "Gemini Flash (sempre atual) — grátis" },
+  { id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro — grátis, prosa mais rica" },
 ];
 
 function SettingsPage() {
@@ -69,7 +69,11 @@ function SettingsPage() {
     setCreativity(Number(data.creativity));
     setStyle(data.style_instructions ?? "");
     setGeminiKeys(data.gemini_api_keys ?? "");
-    setGeminiModel(data.gemini_model ?? GEMINI_MODELS[0].id);
+    setGeminiModel(
+      GEMINI_MODELS.some((m) => m.id === data.gemini_model)
+        ? (data.gemini_model as string)
+        : GEMINI_MODELS[0].id,
+    );
   }, [data]);
 
   async function save() {
