@@ -9,6 +9,7 @@ import {
 
 import {
   createGeminiProvider,
+  geminiFallbackModels,
   getLovableAiGatewayResponseHeaders,
   parseApiKeyList,
   resolveGeminiModelId,
