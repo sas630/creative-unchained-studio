@@ -100,24 +100,27 @@ export const Route = createFileRoute("/api/chat")({
         // Chaves grátis do Google Gemini: cada chave é uma tentativa, então se uma
         // bater no limite diário a próxima assume automaticamente.
         const geminiModelId = resolveGeminiModelId(body.geminiModel);
-        geminiKeys.forEach((key, i) => {
-          attempts.push({
-            label: `gemini#${i + 1}`,
-            provider: `Gemini grátis (chave ${i + 1}/${geminiKeys.length})`,
-            modelId: geminiModelId,
-            run: (onErr) => {
-              const provider = createGeminiProvider(key);
-              return streamText({
-                model: provider(geminiModelId),
-                temperature,
-                system,
-                messages: modelMessages,
-                onError: ({ error }) => {
-                  console.error("[chat] gemini error", error);
-                  onErr(error);
-                },
-              });
-            },
+        const modelCandidates = [geminiModelId, ...geminiFallbackModels(geminiModelId)];
+        modelCandidates.forEach((modelId) => {
+          geminiKeys.forEach((key, i) => {
+            attempts.push({
+              label: `gemini#${i + 1}:${modelId}`,
+              provider: `Gemini grátis (chave ${i + 1}/${geminiKeys.length})`,
+              modelId,
+              run: (onErr) => {
+                const provider = createGeminiProvider(key);
+                return streamText({
+                  model: provider(modelId),
+                  temperature,
+                  system,
+                  messages: modelMessages,
+                  onError: ({ error }) => {
+                    console.error("[chat] gemini error", error);
+                    onErr(error);
+                  },
+                });
+              },
+            });
           });
         });
         // Fallback: se todas as tentativas falharem (402/429/etc), entregamos uma
