@@ -22,6 +22,7 @@ import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authentica
 import { Route as AuthenticatedChatChatIdRouteImport } from './routes/_authenticated/chat.$chatId'
 import { Route as AuthenticatedStoriesIndexRouteImport } from './routes/_authenticated/stories.index'
 import { Route as AuthenticatedStoriesStoryIdRouteImport } from './routes/_authenticated/stories.$storyId'
+import { Route as ApiPublicDiagRouteImport } from './routes/api/public/_diag'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -90,6 +91,11 @@ const AuthenticatedStoriesStoryIdRoute =
     path: '/stories/$storyId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicDiagRoute = ApiPublicDiagRouteImport.update({
+  id: '/api/public/_diag',
+  path: '/api/public',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -102,6 +108,7 @@ export interface FileRoutesByFullPath {
   '/characters/new': typeof AuthenticatedCharactersNewRoute
   '/chat/$chatId': typeof AuthenticatedChatChatIdRoute
   '/stories/$storyId': typeof AuthenticatedStoriesStoryIdRoute
+  '/api/public': typeof ApiPublicDiagRoute
   '/chat/': typeof AuthenticatedChatIndexRoute
   '/stories/': typeof AuthenticatedStoriesIndexRoute
 }
@@ -116,6 +123,7 @@ export interface FileRoutesByTo {
   '/characters/new': typeof AuthenticatedCharactersNewRoute
   '/chat/$chatId': typeof AuthenticatedChatChatIdRoute
   '/stories/$storyId': typeof AuthenticatedStoriesStoryIdRoute
+  '/api/public': typeof ApiPublicDiagRoute
   '/chat': typeof AuthenticatedChatIndexRoute
   '/stories': typeof AuthenticatedStoriesIndexRoute
 }
@@ -132,6 +140,7 @@ export interface FileRoutesById {
   '/_authenticated/characters/new': typeof AuthenticatedCharactersNewRoute
   '/_authenticated/chat/$chatId': typeof AuthenticatedChatChatIdRoute
   '/_authenticated/stories/$storyId': typeof AuthenticatedStoriesStoryIdRoute
+  '/api/public/_diag': typeof ApiPublicDiagRoute
   '/_authenticated/chat/': typeof AuthenticatedChatIndexRoute
   '/_authenticated/stories/': typeof AuthenticatedStoriesIndexRoute
 }
@@ -148,6 +157,7 @@ export interface FileRouteTypes {
     | '/characters/new'
     | '/chat/$chatId'
     | '/stories/$storyId'
+    | '/api/public'
     | '/chat/'
     | '/stories/'
   fileRoutesByTo: FileRoutesByTo
@@ -162,6 +172,7 @@ export interface FileRouteTypes {
     | '/characters/new'
     | '/chat/$chatId'
     | '/stories/$storyId'
+    | '/api/public'
     | '/chat'
     | '/stories'
   id:
@@ -177,6 +188,7 @@ export interface FileRouteTypes {
     | '/_authenticated/characters/new'
     | '/_authenticated/chat/$chatId'
     | '/_authenticated/stories/$storyId'
+    | '/api/public/_diag'
     | '/_authenticated/chat/'
     | '/_authenticated/stories/'
   fileRoutesById: FileRoutesById
@@ -189,6 +201,7 @@ export interface RootRouteChildren {
   ApiStoryRoute: typeof ApiStoryRoute
   CharactersCharacterIdRoute: typeof CharactersCharacterIdRoute
   CharactersIndexRoute: typeof CharactersIndexRoute
+  ApiPublicDiagRoute: typeof ApiPublicDiagRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -284,6 +297,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedStoriesStoryIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/_diag': {
+      id: '/api/public/_diag'
+      path: '/api/public'
+      fullPath: '/api/public'
+      preLoaderRoute: typeof ApiPublicDiagRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -316,6 +336,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiStoryRoute: ApiStoryRoute,
   CharactersCharacterIdRoute: CharactersCharacterIdRoute,
   CharactersIndexRoute: CharactersIndexRoute,
+  ApiPublicDiagRoute: ApiPublicDiagRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
