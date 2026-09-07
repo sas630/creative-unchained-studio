@@ -126,16 +126,31 @@ export function resolveModelId(candidate: unknown): string {
 // ---- Google AI Studio (Gemini) com chaves do próprio usuário: cota gratuita ----
 
 export const GEMINI_MODELS = [
-  "gemini-2.5-flash",
-  "gemini-2.5-flash-lite",
-  "gemini-2.0-flash",
-  "gemini-2.5-pro",
+  "gemini-3-flash-preview",
+  "gemini-3.1-flash-lite",
+  "gemini-flash-latest",
+  "gemini-3.1-pro-preview",
 ] as const;
 
+/** Modelos antigos que o Google desativou -> substituto atual. */
+const GEMINI_MODEL_ALIASES: Record<string, string> = {
+  "gemini-2.5-flash": "gemini-3-flash-preview",
+  "gemini-2.5-flash-lite": "gemini-3.1-flash-lite",
+  "gemini-2.0-flash": "gemini-3-flash-preview",
+  "gemini-2.5-pro": "gemini-3-flash-preview",
+  "gemini-1.5-flash": "gemini-3-flash-preview",
+  "gemini-1.5-pro": "gemini-3-flash-preview",
+};
+
 export function resolveGeminiModelId(candidate: unknown): string {
-  return typeof candidate === "string" && candidate.trim().length > 0
-    ? candidate.trim()
-    : GEMINI_MODELS[0];
+  const value = typeof candidate === "string" ? candidate.trim() : "";
+  if (!value) return GEMINI_MODELS[0];
+  return GEMINI_MODEL_ALIASES[value] ?? value;
+}
+
+/** Modelos alternativos tentados quando o escolhido falha (404/429). */
+export function geminiFallbackModels(chosen: string): string[] {
+  return GEMINI_MODELS.filter((m) => m !== chosen);
 }
 
 /** Aceita várias chaves separadas por linha, vírgula, ponto-e-vírgula ou espaço. */

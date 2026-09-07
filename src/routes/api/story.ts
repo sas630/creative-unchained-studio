@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { streamText } from "ai";
 import {
   createGeminiProvider,
+  geminiFallbackModels,
   createLovableAiGatewayProvider,
   getLovableAiGatewayRunId,
   requireLovableApiKey,
@@ -88,10 +89,12 @@ export const Route = createFileRoute("/api/story")({
         type Source = { label: string; model: () => Parameters<typeof streamText>[0]["model"] };
         const geminiModelId = resolveGeminiModelId(body.geminiModel);
         const sources: Source[] = [
-          ...geminiKeys.map((key, i) => ({
-            label: `gemini#${i + 1}`,
-            model: () => createGeminiProvider(key)(geminiModelId),
-          })),
+          ...[geminiModelId, ...geminiFallbackModels(geminiModelId)].flatMap((modelId) =>
+            geminiKeys.map((key, i) => ({
+              label: `gemini#${i + 1}:${modelId}`,
+              model: () => createGeminiProvider(key)(modelId),
+            })),
+          ),
           ...(lovableKey
             ? [
                 {
