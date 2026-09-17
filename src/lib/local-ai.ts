@@ -7,7 +7,11 @@
  */
 
 export function normalizeLocalBaseUrl(raw: string) {
-  let url = raw.trim().replace(/\/+$/, "");
+  let url = raw.trim();
+  // Remove formatação de link colada por acidente: [https://x](https://x) ou <https://x>
+  const md = url.match(/\[?(https?:\/\/[^\s\]\)<>]+)\]?(?:\(([^)]*)\))?/i);
+  if (md) url = md[1];
+  url = url.replace(/[\[\]\(\)<>]/g, "").replace(/\/+$/, "");
   if (!url) return "";
   if (!/^https?:\/\//i.test(url)) url = `http://${url}`;
   if (!/\/v\d+$/i.test(url)) url = `${url}/v1`;
@@ -18,6 +22,8 @@ function headers(apiKey?: string | null) {
   return {
     "Content-Type": "application/json",
     Authorization: `Bearer ${apiKey?.trim() || "local"}`,
+    // ngrok grátis: sem este cabeçalho ele devolve uma página de aviso em vez da API
+    "ngrok-skip-browser-warning": "true",
   };
 }
 
