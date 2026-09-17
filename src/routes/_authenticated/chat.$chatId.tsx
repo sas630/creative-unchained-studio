@@ -184,7 +184,7 @@ function ChatSurface({
   }, [messages, status]);
 
   useEffect(() => {
-    if (status !== "ready") return;
+    if (status !== "ready" || localBusy) return;
     inputRef.current?.focus();
     const unsaved = messages.filter(
       (m) => !persistedIds.current.has(m.id) && !isFallback(m),
