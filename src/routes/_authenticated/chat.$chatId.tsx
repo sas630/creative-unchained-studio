@@ -119,6 +119,10 @@ function ChatSurface({
     style_instructions: string | null;
     gemini_api_keys?: string | null;
     gemini_model?: string | null;
+    local_enabled?: boolean | null;
+    local_base_url?: string | null;
+    local_model?: string | null;
+    local_api_key?: string | null;
   } | null;
 }) {
   const navigate = useNavigate();
