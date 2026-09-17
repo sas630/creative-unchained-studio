@@ -204,11 +204,98 @@ function ChatSurface({
       if (error) console.error("[chat] persist error", error);
       await supabase.from("chats").update({ updated_at: new Date().toISOString() }).eq("id", chatId);
     })();
-  }, [messages, status, chatId]);
+  }, [messages, status, chatId, localBusy]);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  /** Modo local: a chamada sai do navegador direto para o PC do usuário. */
+  async function sendLocal(text: string) {
+    const userMessage: UIMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      parts: [{ type: "text", text }],
+    };
+    const history = [...messages.filter((m) => !isFallback(m)), userMessage];
+    const assistantId = crypto.randomUUID();
+    setMessages([...history, { id: assistantId, role: "assistant", parts: [{ type: "text", text: "" }] }]);
+    setLocalBusy(true);
+    setAttempts([
+      {
+        phase: "start",
+        provider: "Seu PC (modelo local)",
+        model: profile?.local_model ?? "local",
+        index: 1,
+        total: 1,
+        fallback: false,
+      },
+    ]);
+    const started = Date.now();
+    try {
+      let acc = "";
+      const chars = await streamLocalChat({
+        baseUrl: profile!.local_base_url!,
+        apiKey: profile?.local_api_key ?? null,
+        model: profile!.local_model!,
+        temperature: profile?.creativity ?? 0.9,
+        messages: [
+          {
+            role: "system",
+            content: buildRoleplaySystemPrompt({
+              character: snapshot,
+              userName: profile?.display_name ?? null,
+              styleInstructions: profile?.style_instructions ?? null,
+            }),
+          },
+          ...history.map((m) => ({
+            role: m.role === "user" ? ("user" as const) : ("assistant" as const),
+            content: textOf(m),
+          })),
+        ],
+        onDelta: (delta) => {
+          acc += delta;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId ? { ...m, parts: [{ type: "text", text: acc }] } : m,
+            ),
+          );
+        },
+      });
+      setAttempts([
+        {
+          phase: "done",
+          provider: "Seu PC (modelo local)",
+          model: profile?.local_model ?? "local",
+          index: 1,
+          total: 1,
+          fallback: false,
+          ms: Date.now() - started,
+          chars,
+        },
+      ]);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      setMessages((prev) => prev.filter((m) => m.id !== assistantId));
+      setAttempts([
+        {
+          phase: "error",
+          provider: "Seu PC (modelo local)",
+          model: profile?.local_model ?? "local",
+          index: 1,
+          total: 1,
+          fallback: false,
+          ms: Date.now() - started,
+          error: reason,
+        },
+      ]);
+      toast.error(
+        `O modelo no seu PC não respondeu (${reason}). Confira se o programa está aberto e se ele aceita conexões do navegador.`,
+      );
+    } finally {
+      setLocalBusy(false);
+    }
+  }
 
   async function submit(e?: React.FormEvent) {
     e?.preventDefault();
@@ -216,6 +303,10 @@ function ChatSurface({
     if (!text || isLoading) return;
     setInput("");
     setAttempts([]);
+    if (localMode) {
+      await sendLocal(text);
+      return;
+    }
     await sendMessage({ text });
   }
 
