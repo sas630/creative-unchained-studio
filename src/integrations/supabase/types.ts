@@ -146,6 +146,10 @@ export type Database = {
           gemini_api_keys: string | null
           gemini_model: string | null
           id: string
+          local_api_key: string | null
+          local_base_url: string | null
+          local_enabled: boolean
+          local_model: string | null
           openrouter_api_key: string | null
           openrouter_model: string | null
           style_instructions: string | null
@@ -167,6 +171,10 @@ export type Database = {
           gemini_api_keys?: string | null
           gemini_model?: string | null
           id: string
+          local_api_key?: string | null
+          local_base_url?: string | null
+          local_enabled?: boolean
+          local_model?: string | null
           openrouter_api_key?: string | null
           openrouter_model?: string | null
           style_instructions?: string | null
@@ -188,6 +196,10 @@ export type Database = {
           gemini_api_keys?: string | null
           gemini_model?: string | null
           id?: string
+          local_api_key?: string | null
+          local_base_url?: string | null
+          local_enabled?: boolean
+          local_model?: string | null
           openrouter_api_key?: string | null
           openrouter_model?: string | null
           style_instructions?: string | null
