@@ -172,7 +172,11 @@ function ChatSurface({
     onError: (error) => toast.error(error.message || "A IA não respondeu. Tente de novo."),
   });
 
-  const isLoading = status === "submitted" || status === "streaming";
+  const [localBusy, setLocalBusy] = useState(false);
+  const localMode = Boolean(
+    profile?.local_enabled && profile?.local_base_url && profile?.local_model,
+  );
+  const isLoading = status === "submitted" || status === "streaming" || localBusy;
 
 
   useEffect(() => {
