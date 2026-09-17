@@ -51,6 +51,11 @@ function SettingsPage() {
   const [style, setStyle] = useState("");
   const [geminiKeys, setGeminiKeys] = useState("");
   const [geminiModel, setGeminiModel] = useState(GEMINI_MODELS[0].id);
+  const [localEnabled, setLocalEnabled] = useState(false);
+  const [localUrl, setLocalUrl] = useState("http://localhost:11434");
+  const [localModel, setLocalModel] = useState("dolphin-phi");
+  const [localKey, setLocalKey] = useState("");
+  const [testing, setTesting] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const { data } = useQuery({
@@ -74,6 +79,10 @@ function SettingsPage() {
         ? (data.gemini_model as string)
         : GEMINI_MODELS[0].id,
     );
+    setLocalEnabled(Boolean(data.local_enabled));
+    setLocalUrl(data.local_base_url ?? "http://localhost:11434");
+    setLocalModel(data.local_model ?? "dolphin-phi");
+    setLocalKey(data.local_api_key ?? "");
   }, [data]);
 
   async function save() {
@@ -89,6 +98,10 @@ function SettingsPage() {
         style_instructions: style || null,
         gemini_api_keys: geminiKeys.trim() || null,
         gemini_model: geminiModel,
+        local_enabled: localEnabled,
+        local_base_url: localUrl.trim() || null,
+        local_model: localModel.trim() || null,
+        local_api_key: localKey.trim() || null,
       })
       .eq("id", auth.user.id);
     setBusy(false);
@@ -99,6 +112,26 @@ function SettingsPage() {
     toast.success("Ajustes salvos");
     void queryClient.invalidateQueries({ queryKey: ["profile"] });
   }
+
+  async function testLocal() {
+    setTesting(true);
+    try {
+      const models = await listLocalModels(localUrl, localKey);
+      toast.success(
+        models.length > 0
+          ? `Conectado! Modelos disponíveis: ${models.slice(0, 6).join(", ")}`
+          : "Conectado, mas nenhum modelo foi listado.",
+      );
+    } catch (error) {
+      toast.error(
+        `Não consegui falar com ${localUrl.trim()}. Verifique se o programa está aberto no seu PC e se ele aceita conexões do navegador (no Ollama: OLLAMA_ORIGINS=*).`,
+      );
+      console.error("[settings] teste local falhou", error);
+    } finally {
+      setTesting(false);
+    }
+  }
+
 
 
   return (
