@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
+import { listLocalModels } from "@/lib/local-ai";
 import {
   Select,
   SelectContent,
