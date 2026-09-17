@@ -246,7 +246,59 @@ function SettingsPage() {
             </p>
           </div>
 
+          <div className="space-y-4 rounded-2xl border border-border/60 bg-card/60 p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <Label className="text-base">Modelo no seu PC (Ollama / LM Studio)</Label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Quando ligado, suas cenas são geradas pelo modelo que roda na sua própria
+                  máquina — sem limites e sem custo. O programa precisa estar aberto e aceitar
+                  conexões do navegador (no Ollama: variável <code>OLLAMA_ORIGINS=*</code>).
+                </p>
+              </div>
+              <Switch checked={localEnabled} onCheckedChange={setLocalEnabled} />
+            </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="lurl">Endereço da sua API</Label>
+              <Input
+                id="lurl"
+                value={localUrl}
+                onChange={(e) => setLocalUrl(e.target.value)}
+                placeholder="http://localhost:11434"
+                spellCheck={false}
+                className="font-mono text-xs"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="lmodel">Nome do modelo</Label>
+              <Input
+                id="lmodel"
+                value={localModel}
+                onChange={(e) => setLocalModel(e.target.value)}
+                placeholder="dolphin-phi"
+                spellCheck={false}
+                className="font-mono text-xs"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="lkey">Chave de API (opcional)</Label>
+              <Input
+                id="lkey"
+                value={localKey}
+                onChange={(e) => setLocalKey(e.target.value)}
+                placeholder="deixe em branco"
+                spellCheck={false}
+                className="font-mono text-xs"
+              />
+            </div>
+
+            <Button variant="secondary" disabled={testing} onClick={() => void testLocal()}>
+              {testing ? "Testando…" : "Testar conexão"}
+            </Button>
+          </div>
 
 
           <Button size="lg" disabled={busy} onClick={() => void save()}>
