@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { ArrowLeft, Check, GitBranch, Pencil, RotateCcw, Send, Trash2, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
+import { buildRoleplaySystemPrompt } from "@/lib/roleplay-prompt";
+import { streamLocalChat } from "@/lib/local-ai";
 import { CharacterAvatar } from "@/components/CharacterCard";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
