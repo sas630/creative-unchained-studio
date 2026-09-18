@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as ApiLocalProxyRouteImport } from './routes/api/local-proxy'
 import { Route as ApiStoryRouteImport } from './routes/api/story'
 import { Route as CharactersIndexRouteImport } from './routes/characters.index'
 import { Route as CharactersCharacterIdRouteImport } from './routes/characters.$characterId'
@@ -46,6 +47,11 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
 const ApiChatRoute = ApiChatRouteImport.update({
   id: '/api/chat',
   path: '/api/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLocalProxyRoute = ApiLocalProxyRouteImport.update({
+  id: '/api/local-proxy',
+  path: '/api/local-proxy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiStoryRoute = ApiStoryRouteImport.update({
@@ -102,6 +108,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/local-proxy': typeof ApiLocalProxyRoute
   '/api/story': typeof ApiStoryRoute
   '/characters/$characterId': typeof CharactersCharacterIdRoute
   '/characters/': typeof CharactersIndexRoute
@@ -117,6 +124,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/local-proxy': typeof ApiLocalProxyRoute
   '/api/story': typeof ApiStoryRoute
   '/characters/$characterId': typeof CharactersCharacterIdRoute
   '/characters': typeof CharactersIndexRoute
@@ -134,6 +142,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/local-proxy': typeof ApiLocalProxyRoute
   '/api/story': typeof ApiStoryRoute
   '/characters/$characterId': typeof CharactersCharacterIdRoute
   '/characters/': typeof CharactersIndexRoute
@@ -151,6 +160,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/settings'
     | '/api/chat'
+    | '/api/local-proxy'
     | '/api/story'
     | '/characters/$characterId'
     | '/characters/'
@@ -166,6 +176,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/settings'
     | '/api/chat'
+    | '/api/local-proxy'
     | '/api/story'
     | '/characters/$characterId'
     | '/characters'
@@ -182,6 +193,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/settings'
     | '/api/chat'
+    | '/api/local-proxy'
     | '/api/story'
     | '/characters/$characterId'
     | '/characters/'
@@ -198,6 +210,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiLocalProxyRoute: typeof ApiLocalProxyRoute
   ApiStoryRoute: typeof ApiStoryRoute
   CharactersCharacterIdRoute: typeof CharactersCharacterIdRoute
   CharactersIndexRoute: typeof CharactersIndexRoute
@@ -239,6 +252,13 @@ declare module '@tanstack/react-router' {
       path: '/api/chat'
       fullPath: '/api/chat'
       preLoaderRoute: typeof ApiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/local-proxy': {
+      id: '/api/local-proxy'
+      path: '/api/local-proxy'
+      fullPath: '/api/local-proxy'
+      preLoaderRoute: typeof ApiLocalProxyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/story': {
@@ -333,6 +353,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiLocalProxyRoute: ApiLocalProxyRoute,
   ApiStoryRoute: ApiStoryRoute,
   CharactersCharacterIdRoute: CharactersCharacterIdRoute,
   CharactersIndexRoute: CharactersIndexRoute,
