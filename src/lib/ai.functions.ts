@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   createGeminiProvider,
   createLovableAiGatewayProvider,
+  GEMINI_MODELS,
   parseApiKeyList,
   requireLovableApiKey,
   resolveGeminiModelId,
@@ -14,20 +15,62 @@ const PersonaInput = z.object({
   name: z.string().min(1),
   idea: z.string().min(1),
   model: z.string().optional(),
+  geminiKeys: z.string().optional(),
+  geminiModel: z.string().optional(),
 });
+
+const PERSONA_SYSTEM =
+  "Você escreve fichas de personagem para roleplay. Devolva apenas o texto da persona, sem títulos extras, sem avisos e sem comentários. Escreva de 120 a 220 palavras cobrindo aparência, temperamento, história, motivações, jeito de falar e limites emocionais.";
 
 export const generatePersona = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => PersonaInput.parse(input))
   .handler(async ({ data }) => {
-    const gateway = createLovableAiGatewayProvider(requireLovableApiKey());
-    const { text } = await generateText({
-      model: gateway(resolveModelId(data.model)),
-      temperature: 1,
-      system:
-        "Você escreve fichas de personagem para roleplay. Devolva apenas o texto da persona, sem títulos extras, sem avisos e sem comentários. Escreva de 120 a 220 palavras cobrindo aparência, temperamento, história, motivações, jeito de falar e limites emocionais.",
-      prompt: `Nome do personagem: ${data.name}\nIdeia: ${data.idea}`,
-    });
-    return { persona: text.trim() };
+    const prompt = `Nome do personagem: ${data.name}\nIdeia: ${data.idea}`;
+    const keys = parseApiKeyList(data.geminiKeys);
+    const chosen = resolveGeminiModelId(data.geminiModel);
+    const models = [chosen, ...GEMINI_MODELS.filter((m) => m !== chosen)];
+
+    let lastError: unknown = null;
+    // 1) Chaves grátis do próprio usuário (Google AI Studio): chave × modelo.
+    for (const modelId of models) {
+      for (const key of keys) {
+        try {
+          const provider = createGeminiProvider(key);
+          const { text } = await generateText({
+            model: provider(modelId),
+            maxRetries: 1,
+            temperature: 1,
+            system: PERSONA_SYSTEM,
+            prompt,
+          });
+          if (text.trim()) return { persona: text.trim() };
+        } catch (error) {
+          lastError = error;
+        }
+      }
+    }
+
+    // 2) Último recurso: gateway do app.
+    try {
+      const gateway = createLovableAiGatewayProvider(requireLovableApiKey());
+      const { text } = await generateText({
+        model: gateway(resolveModelId(data.model)),
+        temperature: 1,
+        system: PERSONA_SYSTEM,
+        prompt,
+      });
+      if (text.trim()) return { persona: text.trim() };
+    } catch (error) {
+      lastError = error;
+    }
+
+    throw new Error(
+      keys.length === 0
+        ? "Adicione uma chave grátis do Google Gemini em Ajustes (ou ligue o modelo do seu PC) para gerar personas."
+        : lastError instanceof Error
+          ? lastError.message
+          : "Não foi possível gerar a persona agora.",
+    );
   });
 
 const TitleInput = z.object({
