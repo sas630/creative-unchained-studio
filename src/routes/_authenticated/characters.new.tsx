@@ -1,10 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Sparkles } from "lucide-react";
+import { Check, Sparkles } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { generatePersona } from "@/lib/ai.functions";
+import { streamLocalChat } from "@/lib/local-ai";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,14 +25,48 @@ export const Route = createFileRoute("/_authenticated/characters/new")({
 });
 
 const ACCENTS = [
-  "linear-gradient(135deg, oklch(0.45 0.15 300), oklch(0.35 0.12 260))",
-  "linear-gradient(135deg, oklch(0.5 0.14 40), oklch(0.35 0.1 20))",
-  "linear-gradient(135deg, oklch(0.45 0.12 180), oklch(0.32 0.1 220))",
-  "linear-gradient(135deg, oklch(0.42 0.14 350), oklch(0.3 0.1 320))",
+  { label: "Violeta", value: "linear-gradient(135deg, oklch(0.62 0.2 300), oklch(0.42 0.16 265))" },
+  { label: "Âmbar", value: "linear-gradient(135deg, oklch(0.75 0.17 70), oklch(0.5 0.15 35))" },
+  { label: "Turquesa", value: "linear-gradient(135deg, oklch(0.7 0.14 190), oklch(0.45 0.13 225))" },
+  { label: "Rosa", value: "linear-gradient(135deg, oklch(0.68 0.2 350), oklch(0.44 0.17 320))" },
+  { label: "Verde", value: "linear-gradient(135deg, oklch(0.72 0.17 145), oklch(0.45 0.14 165))" },
+  { label: "Rubro", value: "linear-gradient(135deg, oklch(0.62 0.22 25), oklch(0.38 0.17 10))" },
+  { label: "Azul", value: "linear-gradient(135deg, oklch(0.65 0.18 255), oklch(0.4 0.15 275))" },
+  { label: "Grafite", value: "linear-gradient(135deg, oklch(0.55 0.02 280), oklch(0.3 0.02 280))" },
 ];
+
+type ProfileAi = {
+  gemini_api_keys: string | null;
+  gemini_model: string | null;
+  local_base_url: string | null;
+  local_model: string | null;
+  local_api_key: string | null;
+  local_enabled: boolean | null;
+};
+
+const PERSONA_SYSTEM =
+  "Você escreve fichas de personagem para roleplay. Devolva apenas o texto da persona, sem títulos, sem avisos e sem comentários. De 120 a 220 palavras cobrindo aparência, temperamento, história, motivações, jeito de falar e limites emocionais.";
 
 function NewCharacter() {
   const navigate = useNavigate();
+  const [ai, setAi] = useState<ProfileAi | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) return;
+      const { data } = await supabase
+        .from("profiles")
+        .select("gemini_api_keys, gemini_model, local_base_url, local_model, local_api_key, local_enabled")
+        .eq("id", auth.user.id)
+        .maybeSingle();
+      if (active && data) setAi(data as ProfileAi);
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
   const [name, setName] = useState("");
   const [tagline, setTagline] = useState("");
   const [persona, setPersona] = useState("");
@@ -39,7 +74,7 @@ function NewCharacter() {
   const [greeting, setGreeting] = useState("");
   const [tags, setTags] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
-  const [accent, setAccent] = useState(ACCENTS[0]);
+  const [accent, setAccent] = useState<string>(ACCENTS[0].value);
   const [isPublic, setIsPublic] = useState(false);
   const [busy, setBusy] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -49,14 +84,42 @@ function NewCharacter() {
       toast.error("Dê um nome ao personagem primeiro");
       return;
     }
+    const idea = tagline.trim() || persona.trim() || name.trim();
     setGenerating(true);
+    setPersona("");
     try {
+      // 1) Modelo no PC do usuário, quando ligado nos Ajustes.
+      if (ai?.local_enabled && ai.local_base_url?.trim() && ai.local_model?.trim()) {
+        let acc = "";
+        await streamLocalChat({
+          baseUrl: ai.local_base_url,
+          apiKey: ai.local_api_key,
+          model: ai.local_model,
+          temperature: 0.9,
+          messages: [
+            { role: "system", content: PERSONA_SYSTEM },
+            { role: "user", content: `Nome do personagem: ${name.trim()}\nIdeia: ${idea}` },
+          ],
+          onDelta: (d) => {
+            acc += d;
+            setPersona(acc);
+          },
+        });
+        return;
+      }
+
+      // 2) Chaves grátis do Gemini salvas nos Ajustes (com fallback do app no servidor).
       const { persona: text } = await generatePersona({
-        data: { name: name.trim(), idea: tagline.trim() || persona.trim() || name.trim() },
+        data: {
+          name: name.trim(),
+          idea,
+          geminiKeys: ai?.gemini_api_keys ?? undefined,
+          geminiModel: ai?.gemini_model ?? undefined,
+        },
       });
       setPersona(text);
-    } catch {
-      toast.error("Não foi possível gerar a persona agora");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível gerar a persona agora");
     } finally {
       setGenerating(false);
     }
@@ -181,17 +244,34 @@ function NewCharacter() {
 
           <div className="space-y-2">
             <Label>Cor</Label>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-3">
               {ACCENTS.map((a) => (
                 <button
-                  key={a}
+                  key={a.value}
                   type="button"
-                  onClick={() => setAccent(a)}
-                  aria-label="Escolher cor"
-                  className={`size-9 rounded-lg border-2 ${accent === a ? "border-primary" : "border-transparent"}`}
-                  style={{ background: a }}
-                />
+                  onClick={() => setAccent(a.value)}
+                  aria-label={`Escolher cor ${a.label}`}
+                  aria-pressed={accent === a.value}
+                  title={a.label}
+                  className={`grid size-10 place-items-center rounded-xl ring-2 ring-offset-2 ring-offset-background transition ${
+                    accent === a.value ? "ring-primary" : "ring-transparent hover:ring-border"
+                  }`}
+                  style={{ background: a.value }}
+                >
+                  {accent === a.value && <Check className="size-4 text-white drop-shadow" />}
+                </button>
               ))}
+            </div>
+            <div className="flex items-center gap-3 rounded-xl border border-border/70 p-3">
+              <span
+                className="grid size-12 shrink-0 place-items-center rounded-xl font-serif text-lg text-white"
+                style={{ background: accent }}
+              >
+                {(name.trim().slice(0, 1) || "?").toUpperCase()}
+              </span>
+              <p className="text-sm text-muted-foreground">
+                Prévia do avatar com a cor escolhida (usada quando não há imagem).
+              </p>
             </div>
           </div>
 

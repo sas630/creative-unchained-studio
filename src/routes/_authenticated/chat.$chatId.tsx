@@ -176,6 +176,11 @@ function ChatSurface({
   const localMode = Boolean(
     profile?.local_enabled && profile?.local_base_url && profile?.local_model,
   );
+  // Modelos minúsculos (dolphin-phi, phi, tinyllama, qwen 0.5b…) precisam de
+  // instruções mais duras e contexto curto para não fugirem do assunto.
+  const isSmallLocalModel = /phi|tiny|0\.5b|1\.1b|1b|mini|small|gemma:2b/i.test(
+    profile?.local_model ?? "",
+  );
   const isLoading = status === "submitted" || status === "streaming" || localBusy;
 
 
@@ -238,7 +243,8 @@ function ChatSurface({
         baseUrl: profile!.local_base_url!,
         apiKey: profile?.local_api_key ?? null,
         model: profile!.local_model!,
-        temperature: profile?.creativity ?? 0.9,
+        // Modelos pequenos ficam incoerentes com temperatura alta.
+        temperature: Math.min(profile?.creativity ?? 0.9, isSmallLocalModel ? 0.75 : 1.2),
         messages: [
           {
             role: "system",
@@ -246,12 +252,16 @@ function ChatSurface({
               character: snapshot,
               userName: profile?.display_name ?? null,
               styleInstructions: profile?.style_instructions ?? null,
+              smallModel: isSmallLocalModel,
             }),
           },
-          ...history.map((m) => ({
-            role: m.role === "user" ? ("user" as const) : ("assistant" as const),
-            content: textOf(m),
-          })),
+          // Modelo pequeno = contexto curto: só as últimas trocas, senão ele se perde.
+          ...history
+            .slice(isSmallLocalModel ? -10 : -40)
+            .map((m) => ({
+              role: m.role === "user" ? ("user" as const) : ("assistant" as const),
+              content: textOf(m),
+            })),
         ],
         onDelta: (delta) => {
           acc += delta;
