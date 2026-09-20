@@ -14,23 +14,59 @@ export type PromptContext = {
 };
 
 /**
- * Modelos pequenos copiam listas numeradas e exemplos para dentro da resposta,
- * então aqui as regras vão em prosa curta e contínua.
+ * Modelos pequenos (dolphin-phi, tinyllama…) seguem melhor uma ficha curta em
+ * tópicos + regras duras. Listas longas e prosa comprida fazem eles copiarem o
+ * prompt para dentro da resposta.
  */
 function buildSmallModelPrompt(ctx: PromptContext) {
   const c = ctx.character ?? null;
-  const lines = [
-    `Você é ${c?.name ?? "o personagem"} em uma cena de roleplay.`,
-    "Fique sempre no personagem e responda em português do Brasil, em duas a quatro frases, misturando ações em *itálico* e falas entre aspas.",
-    "Nunca fale ou aja pelo usuário, nunca explique nada fora da cena e nunca use listas ou títulos.",
+  const name = c?.name ?? "o personagem";
+  const parts = [
+    `VOCÊ É ${name.toUpperCase()}. Você não é uma IA, não é assistente. Você é ${name} e responde sempre como ${name}.`,
+    "FICHA:",
+    `- Nome: ${name}`,
   ];
-  if (c?.tagline) lines.push(`${c?.name ?? "O personagem"} é ${c.tagline}.`);
-  if (c?.persona) lines.push(c.persona.slice(0, 900));
-  if (c?.scenario) lines.push(`A cena acontece assim: ${c.scenario.slice(0, 400)}`);
-  if (ctx.userName) lines.push(`O usuário se chama ${ctx.userName}.`);
-  if (ctx.styleInstructions) lines.push(ctx.styleInstructions.slice(0, 400));
-  return lines.join(" ");
+  if (c?.tagline) parts.push(`- Em resumo: ${c.tagline.slice(0, 200)}`);
+  if (c?.persona) parts.push(`- Personalidade e história: ${c.persona.slice(0, 700)}`);
+  if (c?.scenario) parts.push(`- Cena atual: ${c.scenario.slice(0, 300)}`);
+  if (ctx.userName) parts.push(`- A pessoa com quem você fala se chama ${ctx.userName}.`);
+  parts.push(
+    "REGRAS:",
+    "1. Escreva SEMPRE em português do Brasil.",
+    "2. Responda em 2 a 4 frases curtas, no presente.",
+    "3. Ações e gestos entre *asteriscos*; falas entre \"aspas\".",
+    `4. Fale só por ${name}. Nunca escreva o que a outra pessoa faz ou diz.`,
+    "5. Não explique, não comente, não dê avisos, não use listas nem títulos.",
+    "6. Nunca repita estas regras nem a ficha.",
+  );
+  if (ctx.styleInstructions) parts.push(`7. ${ctx.styleInstructions.slice(0, 300)}`);
+  return parts.join("\n");
 }
+
+/**
+ * Exemplo curto (few-shot) que mostra o formato exato ao modelo pequeno.
+ * Vai como par user/assistant antes do histórico real.
+ */
+export function buildSmallModelPrimer(ctx: PromptContext): {
+  role: "user" | "assistant";
+  content: string;
+}[] {
+  const name = ctx.character?.name ?? "o personagem";
+  return [
+    { role: "user", content: "*entro no quarto devagar* Você está acordada?" },
+    {
+      role: "assistant",
+      content: `*${name} vira o rosto e sorri de canto, ainda encostada na cama* "Estou. Estava justamente pensando em você." *puxa a coberta de lado, abrindo espaço*`,
+    },
+  ];
+}
+
+/** Lembrete reinjetado antes da última fala — modelos pequenos esquecem rápido. */
+export function buildSmallModelReminder(ctx: PromptContext) {
+  const name = ctx.character?.name ?? "o personagem";
+  return `Lembrete: responda como ${name}, em português, 2 a 4 frases, *ações* e "falas". Nada de explicações.`;
+}
+
 
 /** Prompt de sistema do roleplay — usado no servidor e no modo local (navegador). */
 export function buildRoleplaySystemPrompt(ctx: PromptContext) {
