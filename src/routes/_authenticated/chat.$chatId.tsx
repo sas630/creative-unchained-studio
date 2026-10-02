@@ -4,7 +4,7 @@ import { DefaultChatTransport, type UIMessage } from "ai";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Check, GitBranch, Pencil, RotateCcw, Send, Trash2, X } from "lucide-react";
+import { ArrowLeft, Check, GitBranch, Pencil, RotateCcw, Send, Square, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
 import { buildRoleplaySystemPrompt } from "@/lib/roleplay-prompt";
@@ -214,6 +214,56 @@ function ChatSurface({
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  // ---- Leitura em voz alta (voz do navegador: grátis e sem limites) ----
+  const [voiceOn, setVoiceOn] = useState(false);
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
+  const spokenIds = useRef(new Set(initialMessages.map((m) => m.id)));
+
+  useEffect(() => {
+    setVoiceOn(localStorage.getItem("lumen-voice") === "1");
+    return () => window.speechSynthesis?.cancel();
+  }, []);
+
+  function stopSpeaking() {
+    window.speechSynthesis?.cancel();
+    setSpeakingId(null);
+  }
+
+  function speak(m: UIMessage) {
+    const synth = window.speechSynthesis;
+    if (!synth) {
+      toast.error("Seu navegador não tem leitura em voz alta.");
+      return;
+    }
+    synth.cancel();
+    const clean = textOf(m).replace(/[*_#`>~]/g, "").replace(/\s+/g, " ").trim();
+    if (!clean) return;
+    const utter = new SpeechSynthesisUtterance(clean);
+    utter.lang = "pt-BR";
+    const voice = synth.getVoices().find((v) => v.lang?.toLowerCase().startsWith("pt"));
+    if (voice) utter.voice = voice;
+    utter.onend = () => setSpeakingId((cur) => (cur === m.id ? null : cur));
+    utter.onerror = utter.onend;
+    setSpeakingId(m.id);
+    synth.speak(utter);
+  }
+
+  function toggleVoice() {
+    const next = !voiceOn;
+    setVoiceOn(next);
+    localStorage.setItem("lumen-voice", next ? "1" : "0");
+    if (!next) stopSpeaking();
+  }
+
+  useEffect(() => {
+    if (status !== "ready" || localBusy) return;
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant" || isFallback(last) || spokenIds.current.has(last.id)) return;
+    spokenIds.current.add(last.id);
+    if (voiceOn) speak(last);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, status, localBusy, voiceOn]);
 
   /** Modo local: a chamada sai do navegador direto para o PC do usuário. */
   async function sendLocal(text: string) {
@@ -452,7 +502,15 @@ function ChatSurface({
             <p className="truncate text-xs text-muted-foreground">{snapshot.tagline}</p>
           )}
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex gap-1">
+          <Button
+            size="sm"
+            variant={voiceOn ? "secondary" : "ghost"}
+            onClick={toggleVoice}
+            title="Ler respostas em voz alta automaticamente"
+          >
+            {voiceOn ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />} Voz
+          </Button>
           <Button
             size="sm"
             variant="ghost"
@@ -511,7 +569,19 @@ function ChatSurface({
                 )}
 
                 {editingId !== m.id && (
-                  <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                  <div className="flex gap-1 opacity-80 transition-opacity hover:opacity-100">
+                    {m.role === "assistant" && textOf(m) && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-7 text-muted-foreground"
+                        title={speakingId === m.id ? "Parar" : "Ler em voz alta"}
+                        aria-label={speakingId === m.id ? "Parar" : "Ler em voz alta"}
+                        onClick={() => (speakingId === m.id ? stopSpeaking() : speak(m))}
+                      >
+                        {speakingId === m.id ? <Square className="size-3.5" /> : <Volume2 className="size-3.5" />}
+                      </Button>
+                    )}
                     <Button
                       size="icon"
                       variant="ghost"
