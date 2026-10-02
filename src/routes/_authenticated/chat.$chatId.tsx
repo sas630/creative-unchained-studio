@@ -225,26 +225,57 @@ function ChatSurface({
     return () => window.speechSynthesis?.cancel();
   }, []);
 
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
   function stopSpeaking() {
     window.speechSynthesis?.cancel();
+    audioRef.current?.pause();
+    audioRef.current = null;
     setSpeakingId(null);
   }
 
-  function speak(m: UIMessage) {
-    const synth = window.speechSynthesis;
-    if (!synth) {
-      toast.error("Seu navegador não tem leitura em voz alta.");
-      return;
+  async function speakWithGemini(m: UIMessage, clean: string) {
+    setSpeakingId(m.id);
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: clean, keys: profile?.gemini_api_keys ?? "" }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const url = URL.createObjectURL(await res.blob());
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      const done = () => {
+        URL.revokeObjectURL(url);
+        setSpeakingId((cur) => (cur === m.id ? null : cur));
+      };
+      audio.onended = done;
+      audio.onerror = done;
+      await audio.play();
+    } catch (error) {
+      setSpeakingId(null);
+      toast.error(error instanceof Error ? error.message : "Não foi possível ler em voz alta.");
     }
-    synth.cancel();
+  }
+
+  function speak(m: UIMessage) {
+    window.speechSynthesis?.cancel();
+    audioRef.current?.pause();
     const clean = textOf(m).replace(/[*_#`>~]/g, "").replace(/\s+/g, " ").trim();
     if (!clean) return;
+    const synth = typeof window !== "undefined" ? window.speechSynthesis : undefined;
+    const voices = synth?.getVoices() ?? [];
+    if (!synth || typeof SpeechSynthesisUtterance === "undefined" || voices.length === 0) {
+      void speakWithGemini(m, clean);
+      return;
+    }
     const utter = new SpeechSynthesisUtterance(clean);
     utter.lang = "pt-BR";
-    const voice = synth.getVoices().find((v) => v.lang?.toLowerCase().startsWith("pt"));
+    const voice = voices.find((v) => v.lang?.toLowerCase().startsWith("pt"));
     if (voice) utter.voice = voice;
     utter.onend = () => setSpeakingId((cur) => (cur === m.id ? null : cur));
-    utter.onerror = utter.onend;
+    utter.onerror = () => void speakWithGemini(m, clean);
     setSpeakingId(m.id);
     synth.speak(utter);
   }

@@ -16,6 +16,7 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiLocalProxyRouteImport } from './routes/api/local-proxy'
 import { Route as ApiStoryRouteImport } from './routes/api/story'
+import { Route as ApiTtsRouteImport } from './routes/api/tts'
 import { Route as CharactersIndexRouteImport } from './routes/characters.index'
 import { Route as CharactersCharacterIdRouteImport } from './routes/characters.$characterId'
 import { Route as AuthenticatedCharactersNewRouteImport } from './routes/_authenticated/characters.new'
@@ -57,6 +58,11 @@ const ApiLocalProxyRoute = ApiLocalProxyRouteImport.update({
 const ApiStoryRoute = ApiStoryRouteImport.update({
   id: '/api/story',
   path: '/api/story',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTtsRoute = ApiTtsRouteImport.update({
+  id: '/api/tts',
+  path: '/api/tts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CharactersIndexRoute = CharactersIndexRouteImport.update({
@@ -110,6 +116,7 @@ export interface FileRoutesByFullPath {
   '/api/chat': typeof ApiChatRoute
   '/api/local-proxy': typeof ApiLocalProxyRoute
   '/api/story': typeof ApiStoryRoute
+  '/api/tts': typeof ApiTtsRoute
   '/characters/$characterId': typeof CharactersCharacterIdRoute
   '/characters/': typeof CharactersIndexRoute
   '/characters/new': typeof AuthenticatedCharactersNewRoute
@@ -126,6 +133,7 @@ export interface FileRoutesByTo {
   '/api/chat': typeof ApiChatRoute
   '/api/local-proxy': typeof ApiLocalProxyRoute
   '/api/story': typeof ApiStoryRoute
+  '/api/tts': typeof ApiTtsRoute
   '/characters/$characterId': typeof CharactersCharacterIdRoute
   '/characters': typeof CharactersIndexRoute
   '/characters/new': typeof AuthenticatedCharactersNewRoute
@@ -144,6 +152,7 @@ export interface FileRoutesById {
   '/api/chat': typeof ApiChatRoute
   '/api/local-proxy': typeof ApiLocalProxyRoute
   '/api/story': typeof ApiStoryRoute
+  '/api/tts': typeof ApiTtsRoute
   '/characters/$characterId': typeof CharactersCharacterIdRoute
   '/characters/': typeof CharactersIndexRoute
   '/_authenticated/characters/new': typeof AuthenticatedCharactersNewRoute
@@ -162,6 +171,7 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/api/local-proxy'
     | '/api/story'
+    | '/api/tts'
     | '/characters/$characterId'
     | '/characters/'
     | '/characters/new'
@@ -178,6 +188,7 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/api/local-proxy'
     | '/api/story'
+    | '/api/tts'
     | '/characters/$characterId'
     | '/characters'
     | '/characters/new'
@@ -195,6 +206,7 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/api/local-proxy'
     | '/api/story'
+    | '/api/tts'
     | '/characters/$characterId'
     | '/characters/'
     | '/_authenticated/characters/new'
@@ -212,6 +224,7 @@ export interface RootRouteChildren {
   ApiChatRoute: typeof ApiChatRoute
   ApiLocalProxyRoute: typeof ApiLocalProxyRoute
   ApiStoryRoute: typeof ApiStoryRoute
+  ApiTtsRoute: typeof ApiTtsRoute
   CharactersCharacterIdRoute: typeof CharactersCharacterIdRoute
   CharactersIndexRoute: typeof CharactersIndexRoute
   ApiPublicDiagRoute: typeof ApiPublicDiagRoute
@@ -266,6 +279,13 @@ declare module '@tanstack/react-router' {
       path: '/api/story'
       fullPath: '/api/story'
       preLoaderRoute: typeof ApiStoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/tts': {
+      id: '/api/tts'
+      path: '/api/tts'
+      fullPath: '/api/tts'
+      preLoaderRoute: typeof ApiTtsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/characters/': {
@@ -355,6 +375,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiChatRoute: ApiChatRoute,
   ApiLocalProxyRoute: ApiLocalProxyRoute,
   ApiStoryRoute: ApiStoryRoute,
+  ApiTtsRoute: ApiTtsRoute,
   CharactersCharacterIdRoute: CharactersCharacterIdRoute,
   CharactersIndexRoute: CharactersIndexRoute,
   ApiPublicDiagRoute: ApiPublicDiagRoute,
