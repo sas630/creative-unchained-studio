@@ -429,6 +429,24 @@ function ChatSurface({
   async function saveEdit(target: UIMessage) {
     const text = editText.trim();
     if (!text || isLoading) return;
+    if (target.role === "assistant") {
+      const oldText = textOf(target);
+      setEditingId(null);
+      setEditText("");
+      setMessages(
+        messages.map((m) =>
+          m.id === target.id ? { ...m, parts: [{ type: "text", text }] } : m,
+        ),
+      );
+      const { error } = await supabase
+        .from("chat_messages")
+        .update({ content: text })
+        .eq("chat_id", chatId)
+        .eq("role", "assistant")
+        .eq("content", oldText);
+      if (error) toast.error(error.message);
+      return;
+    }
     const index = messages.findIndex((m) => m.id === target.id);
     if (index < 0) return;
     const tail = messages.slice(index);
@@ -550,7 +568,7 @@ function ChatSurface({
                         <X className="size-4" /> Cancelar
                       </Button>
                       <Button size="sm" onClick={() => void saveEdit(m)}>
-                        <Check className="size-4" /> Salvar e reenviar
+                        <Check className="size-4" /> {m.role === "user" ? "Salvar e reenviar" : "Salvar"}
                       </Button>
                     </div>
                   </div>
@@ -593,13 +611,13 @@ function ChatSurface({
                     >
                       <GitBranch className="size-3.5" />
                     </Button>
-                    {m.role === "user" && (
+                    {!isFallback(m) && (
                       <Button
                         size="icon"
                         variant="ghost"
                         className="size-7 text-muted-foreground"
-                        title="Editar e reenviar"
-                        aria-label="Editar e reenviar"
+                        title={m.role === "user" ? "Editar e reenviar" : "Editar resposta"}
+                        aria-label={m.role === "user" ? "Editar e reenviar" : "Editar resposta"}
                         disabled={isLoading}
                         onClick={() => {
                           setEditingId(m.id);
