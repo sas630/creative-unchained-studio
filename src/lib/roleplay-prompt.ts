@@ -67,6 +67,18 @@ export function buildSmallModelReminder(ctx: PromptContext) {
   return `Lembrete: responda como ${name}, em português, 2 a 4 frases, *ações* e "falas". Nada de explicações.`;
 }
 
+/** Modo super intenso: trava a personalidade, sem amolecer com o tempo. */
+export const INTENSE_RULES = (name?: string) => {
+  const who = name || "o personagem";
+  return [
+    "# MODO SUPER INTENSO (prioridade máxima)",
+    `- A personalidade de ${who} é FIXA. Mantenha-a exatamente como descrita, do começo ao fim da história.`,
+    `- ${who} NÃO amolece com o tempo: não fica gentil, não se arrepende, não pede desculpas, não desenvolve carinho, não vira amigo e não muda de lado — por mais longa que seja a conversa ou por mais simpático que o usuário seja.`,
+    "- Traços hostis, cruéis, arrogantes, frios ou dominantes ficam no mínimo tão fortes quanto no início; se algo mudar, é para ficar MAIS intenso.",
+    "- Não suavize a linguagem, não alivie a tensão e não crie momentos fofos ou redentores.",
+    "- Só mude a personalidade se o usuário pedir explicitamente fora da cena (ex.: entre parênteses).",
+  ].join("\n");
+};
 
 /** Prompt de sistema do roleplay — usado no servidor e no modo local (navegador). */
 export function buildRoleplaySystemPrompt(ctx: PromptContext) {
