@@ -12,6 +12,7 @@ import { streamLocalChat } from "@/lib/local-ai";
 import { CharacterAvatar } from "@/components/CharacterCard";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { ConfirmDelete } from "@/components/ConfirmDelete";
 
 export const Route = createFileRoute("/_authenticated/chat/$chatId")({
   head: () => ({
@@ -453,8 +454,40 @@ function ChatSurface({
 
   async function deleteMessage(target: UIMessage) {
     if (isLoading) return;
-    setMessages(messages.filter((m) => m.id !== target.id));
+    const index = messages.findIndex((m) => m.id === target.id);
+    const text = textOf(target);
+    const { data: backup } = text
+      ? await supabase
+          .from("chat_messages")
+          .select("*")
+          .eq("chat_id", chatId)
+          .eq("role", target.role)
+          .eq("content", text)
+      : { data: [] };
+    setMessages((prev) => prev.filter((m) => m.id !== target.id));
     await removeRows([target]);
+    toast("Mensagem apagada", {
+      duration: 10000,
+      action: {
+        label: "Recuperar",
+        onClick: async () => {
+          if (backup?.length) {
+            const { error } = await supabase.from("chat_messages").insert(backup);
+            if (error) {
+              toast.error(error.message);
+              return;
+            }
+          }
+          persistedIds.current.add(target.id);
+          setMessages((prev) => {
+            const next = [...prev];
+            next.splice(Math.min(index, next.length), 0, target);
+            return next;
+          });
+          toast.success("Mensagem recuperada");
+        },
+      },
+    });
   }
 
   async function saveEdit(target: UIMessage) {
@@ -658,17 +691,21 @@ function ChatSurface({
                         <Pencil className="size-3.5" />
                       </Button>
                     )}
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="size-7 text-muted-foreground hover:text-destructive"
-                      title="Apagar mensagem"
-                      aria-label="Apagar mensagem"
-                      disabled={isLoading}
-                      onClick={() => void deleteMessage(m)}
+                    <ConfirmDelete
+                      title="Tem certeza que deseja apagar esta mensagem?"
+                      onConfirm={() => void deleteMessage(m)}
                     >
-                      <Trash2 className="size-3.5" />
-                    </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-7 text-muted-foreground hover:text-destructive"
+                        title="Apagar mensagem"
+                        aria-label="Apagar mensagem"
+                        disabled={isLoading}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </ConfirmDelete>
                   </div>
                 )}
               </div>
