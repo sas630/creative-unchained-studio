@@ -30,7 +30,12 @@ type ChatBody = {
   userName?: string | null;
   geminiKeys?: string | null;
   geminiModel?: string | null;
+  intense?: boolean;
 };
+
+import { INTENSE_RULES } from "@/lib/roleplay-prompt";
+
+
 
 
 function buildSystemPrompt(body: ChatBody) {
@@ -49,6 +54,7 @@ function buildSystemPrompt(body: ChatBody) {
   if (c?.scenario) lines.push(`Cenário:\n${c.scenario}`);
   if (body.userName) lines.push(`\nO usuário se chama ${body.userName}.`);
   if (body.styleInstructions) lines.push(`\nInstruções de estilo do usuário:\n${body.styleInstructions}`);
+  if (body.intense) lines.push(`\n${INTENSE_RULES(c?.name)}`);
   return lines.join("\n");
 }
 
