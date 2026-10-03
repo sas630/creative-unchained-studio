@@ -135,6 +135,16 @@ function ChatSurface({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const persistedIds = useRef(new Set(initialMessages.map((m) => m.id)));
+  const [intense, setIntense] = useState(false);
+  useEffect(() => {
+    setIntense(localStorage.getItem(`lumen-intense-${chatId}`) === "1");
+  }, [chatId]);
+  function toggleIntense() {
+    const next = !intense;
+    setIntense(next);
+    localStorage.setItem(`lumen-intense-${chatId}`, next ? "1" : "0");
+    toast(next ? "Modo intenso ligado: o personagem não vai amolecer." : "Modo intenso desligado.");
+  }
 
   const transport = useMemo(
     () =>
@@ -148,9 +158,10 @@ function ChatSurface({
           userName: profile?.display_name,
           geminiKeys: profile?.gemini_api_keys,
           geminiModel: profile?.gemini_model,
+          intense,
         },
       }),
-    [snapshot, profile],
+    [snapshot, profile, intense],
   );
 
 
@@ -333,7 +344,10 @@ function ChatSurface({
             content: buildRoleplaySystemPrompt({
               character: snapshot,
               userName: profile?.display_name ?? null,
-              styleInstructions: profile?.style_instructions ?? null,
+              styleInstructions:
+                [profile?.style_instructions, intense ? INTENSE_RULES(snapshot?.name) : ""]
+                  .filter(Boolean)
+                  .join("\n") || null,
               smallModel: isSmallLocalModel,
             }),
           },
@@ -592,6 +606,14 @@ function ChatSurface({
             title="Ler respostas em voz alta automaticamente"
           >
             {voiceOn ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />} Voz
+          </Button>
+          <Button
+            size="sm"
+            variant={intense ? "destructive" : "ghost"}
+            onClick={toggleIntense}
+            title="Modo super intenso: o personagem nunca amolece"
+          >
+            <Flame className="size-4" /> Intenso
           </Button>
           <Button
             size="sm"
