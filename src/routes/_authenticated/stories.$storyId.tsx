@@ -60,28 +60,79 @@ function StoryEditor() {
     },
   });
 
+  function openChapter(id: string, serverContent: string) {
+    setActiveChapter(id);
+    const draft = localStorage.getItem(`lumen-draft-${id}`);
+    if (draft !== null && draft !== serverContent) {
+      // havia texto não enviado: recupera e salva
+      setContent(draft);
+      scheduleSave(id, draft);
+    } else {
+      setContent(serverContent);
+    }
+  }
+
   useEffect(() => {
     if (!data?.chapters.length) return;
     const current = data.chapters.find((c) => c.id === activeChapter) ?? data.chapters[0];
     if (current.id !== activeChapter) {
       setActiveChapter(current.id);
-      setContent(current.content);
+      openChapter(current.id, current.content);
     }
   }, [data, activeChapter]);
 
-  function scheduleSave(chapterId: string, value: string) {
+  const [saveState, setSaveState] = useState<"saved" | "saving" | "error">("saved");
+  const pending = useRef<{ chapterId: string; value: string } | null>(null);
+
+  async function flushSave() {
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      void supabase
-        .from("story_chapters")
-        .update({ content: value, updated_at: new Date().toISOString() })
-        .eq("id", chapterId);
-      void supabase
-        .from("stories")
-        .update({ updated_at: new Date().toISOString() })
-        .eq("id", storyId);
-    }, 700);
+    saveTimer.current = null;
+    const job = pending.current;
+    if (!job) return;
+    pending.current = null;
+    setSaveState("saving");
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from("story_chapters")
+      .update({ content: job.value, updated_at: now })
+      .eq("id", job.chapterId);
+    if (error) {
+      // mantém na fila para tentar de novo
+      pending.current ??= job;
+      setSaveState("error");
+      saveTimer.current = setTimeout(() => void flushSave(), 3000);
+      return;
+    }
+    localStorage.removeItem(`lumen-draft-${job.chapterId}`);
+    void supabase.from("stories").update({ updated_at: now }).eq("id", storyId);
+    queryClient.setQueryData(["story", storyId], (old: typeof data) =>
+      old
+        ? { ...old, chapters: old.chapters.map((c) => (c.id === job.chapterId ? { ...c, content: job.value } : c)) }
+        : old,
+    );
+    setSaveState(pending.current ? "saving" : "saved");
   }
+
+  function scheduleSave(chapterId: string, value: string) {
+    pending.current = { chapterId, value };
+    // cópia instantânea no aparelho: nada se perde nem se a internet cair
+    localStorage.setItem(`lumen-draft-${chapterId}`, value);
+    setSaveState("saving");
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => void flushSave(), 250);
+  }
+
+  useEffect(() => {
+    const onLeave = () => void flushSave();
+    window.addEventListener("beforeunload", onLeave);
+    document.addEventListener("visibilitychange", onLeave);
+    return () => {
+      window.removeEventListener("beforeunload", onLeave);
+      document.removeEventListener("visibilitychange", onLeave);
+      void flushSave();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function updateContent(value: string) {
     setContent(value);
@@ -171,8 +222,8 @@ function StoryEditor() {
             ? `${base}${base.trim() && !base.endsWith("\n") ? "\n\n" : ""}${acc}`
             : `${base.slice(0, selStart)}${acc}${base.slice(selEnd)}`;
         setContent(next);
+        if (activeChapter) scheduleSave(activeChapter, next);
       }
-      if (activeChapter) scheduleSave(activeChapter, areaRef.current?.value ?? content);
     } catch (error) {
       if ((error as Error).name !== "AbortError") {
         toast.error(error instanceof Error ? error.message : "Erro ao gerar");
@@ -206,7 +257,8 @@ function StoryEditor() {
         <div className="min-w-0">
           <p className="truncate font-serif text-lg leading-tight">{data.story.title}</p>
           <p className="text-xs text-muted-foreground">
-            {content.trim() ? content.trim().split(/\s+/).length : 0} palavras
+            {content.trim() ? content.trim().split(/\s+/).length : 0} palavras ·{" "}
+            {saveState === "saved" ? "Salvo" : saveState === "saving" ? "Salvando…" : "Sem conexão — salvo no aparelho, tentando de novo"}
           </p>
         </div>
         <div className="ml-auto flex items-center gap-2">
@@ -229,7 +281,8 @@ function StoryEditor() {
                   type="button"
                   onClick={() => {
                     setActiveChapter(chapter.id);
-                    setContent(chapter.content);
+                    void flushSave();
+                    openChapter(chapter.id, chapter.content);
                   }}
                   className={`w-full truncate rounded-lg px-3 py-2 text-left text-sm transition-colors ${
                     chapter.id === activeChapter

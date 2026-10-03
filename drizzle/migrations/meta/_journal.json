@@ -8,6 +8,13 @@
       "when": 1789619776862,
       "tag": "0000_add_local_ai_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791002777990,
+      "tag": "0001_stories_soft_delete",
+      "breakpoints": true
     }
   ]
 }

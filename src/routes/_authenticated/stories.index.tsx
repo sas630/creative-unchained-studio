@@ -2,8 +2,9 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Feather, Plus, Trash2 } from "lucide-react";
+import { ArchiveRestore, Feather, Plus, Trash2 } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
+import { ConfirmDelete } from "@/components/ConfirmDelete";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,7 +40,8 @@ function StoriesPage() {
   const [premise, setPremise] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const { data, isLoading } = useQuery({
+  const [showTrash, setShowTrash] = useState(false);
+  const { data: all, isLoading } = useQuery({
     queryKey: ["stories"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -50,6 +52,8 @@ function StoriesPage() {
       return data;
     },
   });
+  const data = all?.filter((s) => !s.deleted_at);
+  const trash = all?.filter((s) => s.deleted_at) ?? [];
 
   async function create() {
     setBusy(true);
@@ -83,13 +87,29 @@ function StoriesPage() {
     }
   }
 
-  async function remove(id: string) {
-    const { error } = await supabase.from("stories").delete().eq("id", id);
+  async function setDeleted(id: string, deleted: boolean) {
+    const { error } = await supabase
+      .from("stories")
+      .update({ deleted_at: deleted ? new Date().toISOString() : null })
+      .eq("id", id);
     if (error) {
       toast.error(error.message);
-      return;
+      return false;
     }
-    void queryClient.invalidateQueries({ queryKey: ["stories"] });
+    await queryClient.invalidateQueries({ queryKey: ["stories"] });
+    return true;
+  }
+
+  async function remove(id: string) {
+    if (!(await setDeleted(id, true))) return;
+    toast("História movida para a lixeira", {
+      duration: 10000,
+      action: { label: "Recuperar", onClick: () => void restore(id) },
+    });
+  }
+
+  async function restore(id: string) {
+    if (await setDeleted(id, false)) toast.success("História recuperada");
   }
 
   return (
@@ -172,18 +192,42 @@ function StoriesPage() {
                   <span className="text-xs text-muted-foreground">
                     {new Date(story.updated_at).toLocaleDateString("pt-BR")}
                   </span>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    aria-label="Excluir história"
-                    onClick={() => void remove(story.id)}
+                  <ConfirmDelete
+                    title={`Tem certeza que deseja apagar "${story.title}"?`}
+                    description="Ela vai para a lixeira e você pode recuperar quando quiser."
+                    onConfirm={() => void remove(story.id)}
                   >
-                    <Trash2 className="size-4" />
-                  </Button>
+                    <Button size="icon" variant="ghost" aria-label="Excluir história">
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </ConfirmDelete>
                 </div>
               </li>
             ))}
           </ul>
+        )}
+
+        {trash.length > 0 && (
+          <div className="mt-10">
+            <Button variant="ghost" size="sm" onClick={() => setShowTrash(!showTrash)}>
+              <ArchiveRestore className="size-4" /> Lixeira ({trash.length})
+            </Button>
+            {showTrash && (
+              <ul className="mt-3 space-y-2">
+                {trash.map((story) => (
+                  <li
+                    key={story.id}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-dashed border-border p-4"
+                  >
+                    <span className="truncate text-sm text-muted-foreground">{story.title}</span>
+                    <Button size="sm" variant="secondary" onClick={() => void restore(story.id)}>
+                      <ArchiveRestore className="size-4" /> Recuperar
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         )}
       </main>
     </div>
