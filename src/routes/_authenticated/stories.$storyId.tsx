@@ -60,12 +60,24 @@ function StoryEditor() {
     },
   });
 
+  function openChapter(id: string, serverContent: string) {
+    setActiveChapter(id);
+    const draft = localStorage.getItem(`lumen-draft-${id}`);
+    if (draft !== null && draft !== serverContent) {
+      // havia texto não enviado: recupera e salva
+      setContent(draft);
+      scheduleSave(id, draft);
+    } else {
+      setContent(serverContent);
+    }
+  }
+
   useEffect(() => {
     if (!data?.chapters.length) return;
     const current = data.chapters.find((c) => c.id === activeChapter) ?? data.chapters[0];
     if (current.id !== activeChapter) {
       setActiveChapter(current.id);
-      setContent(current.content);
+      openChapter(current.id, current.content);
     }
   }, [data, activeChapter]);
 
@@ -210,8 +222,8 @@ function StoryEditor() {
             ? `${base}${base.trim() && !base.endsWith("\n") ? "\n\n" : ""}${acc}`
             : `${base.slice(0, selStart)}${acc}${base.slice(selEnd)}`;
         setContent(next);
+        if (activeChapter) scheduleSave(activeChapter, next);
       }
-      if (activeChapter) scheduleSave(activeChapter, areaRef.current?.value ?? content);
     } catch (error) {
       if ((error as Error).name !== "AbortError") {
         toast.error(error instanceof Error ? error.message : "Erro ao gerar");
@@ -245,7 +257,8 @@ function StoryEditor() {
         <div className="min-w-0">
           <p className="truncate font-serif text-lg leading-tight">{data.story.title}</p>
           <p className="text-xs text-muted-foreground">
-            {content.trim() ? content.trim().split(/\s+/).length : 0} palavras
+            {content.trim() ? content.trim().split(/\s+/).length : 0} palavras ·{" "}
+            {saveState === "saved" ? "Salvo" : saveState === "saving" ? "Salvando…" : "Sem conexão — salvo no aparelho, tentando de novo"}
           </p>
         </div>
         <div className="ml-auto flex items-center gap-2">
@@ -268,7 +281,8 @@ function StoryEditor() {
                   type="button"
                   onClick={() => {
                     setActiveChapter(chapter.id);
-                    setContent(chapter.content);
+                    void flushSave();
+                    openChapter(chapter.id, chapter.content);
                   }}
                   className={`w-full truncate rounded-lg px-3 py-2 text-left text-sm transition-colors ${
                     chapter.id === activeChapter
