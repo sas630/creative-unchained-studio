@@ -157,7 +157,8 @@ export function geminiFallbackModels(chosen: string): string[] {
 export function parseApiKeyList(candidate: unknown): string[] {
   if (typeof candidate !== "string") return [];
   const seen = new Set<string>();
-  for (const raw of candidate.split(/[\s,;]+/)) {
+  // Também separa chaves coladas juntas (prefixos "AQ." e "AIza").
+  for (const raw of candidate.split(/[\s,;]+|(?=AQ\.)|(?=AIza)/)) {
     const key = raw.trim();
     if (key.length > 10) seen.add(key);
   }
