@@ -158,6 +158,14 @@ function ChatSurface({
           userName: profile?.display_name,
           geminiKeys: profile?.gemini_api_keys,
           geminiModel: profile?.gemini_model,
+          ...(typeof window !== "undefined"
+            ? {
+                openaiKeys: localStorage.getItem("lumen-openai-keys") ?? "",
+                openaiModel: localStorage.getItem("lumen-openai-model") ?? "",
+                kimiKeys: localStorage.getItem("lumen-kimi-keys") ?? "",
+                kimiModel: localStorage.getItem("lumen-kimi-model") ?? "",
+              }
+            : {}),
           intense,
         },
       }),

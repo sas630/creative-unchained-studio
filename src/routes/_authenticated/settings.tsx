@@ -246,6 +246,8 @@ function SettingsPage() {
             </p>
           </div>
 
+          <ExtraKeys />
+
           <div className="space-y-4 rounded-2xl border border-border/60 bg-card/60 p-5">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -306,6 +308,63 @@ function SettingsPage() {
           </Button>
         </div>
       </main>
+    </div>
+  );
+}
+
+const EXTRA_PROVIDERS = [
+  { id: "openai", title: "Chave da OpenAI", hint: "sk-...", link: "https://platform.openai.com/api-keys", defModel: "gpt-4o-mini" },
+  { id: "kimi", title: "Chave do Kimi (Moonshot)", hint: "sk-...", link: "https://platform.moonshot.ai/console/api-keys", defModel: "kimi-k2-0905-preview" },
+] as const;
+
+function ExtraKeys() {
+  const [vals, setVals] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const v: Record<string, string> = {};
+    EXTRA_PROVIDERS.forEach((p) => {
+      v[`${p.id}-keys`] = localStorage.getItem(`lumen-${p.id}-keys`) ?? "";
+      v[`${p.id}-model`] = localStorage.getItem(`lumen-${p.id}-model`) ?? p.defModel;
+    });
+    setVals(v);
+  }, []);
+  const set = (k: string, value: string) => {
+    setVals((prev) => ({ ...prev, [k]: value }));
+    localStorage.setItem(`lumen-${k}`, value);
+  };
+  return (
+    <div className="space-y-4 rounded-2xl border border-border/60 bg-card/60 p-5">
+      <div>
+        <Label className="text-base">Chaves extras (anti-falha)</Label>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Se o Gemini der “Too Many Requests”, o chat troca sozinho para Kimi e depois OpenAI.
+          Salvo automaticamente neste aparelho.
+        </p>
+      </div>
+      {EXTRA_PROVIDERS.map((p) => (
+        <div key={p.id} className="space-y-2">
+          <Label>
+            {p.title}{" "}
+            <a href={p.link} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">
+              obter chave
+            </a>
+          </Label>
+          <Textarea
+            rows={2}
+            spellCheck={false}
+            autoComplete="off"
+            className="font-mono text-xs"
+            value={vals[`${p.id}-keys`] ?? ""}
+            onChange={(e) => set(`${p.id}-keys`, e.target.value)}
+            placeholder={p.hint}
+          />
+          <Input
+            className="font-mono text-xs"
+            value={vals[`${p.id}-model`] ?? ""}
+            onChange={(e) => set(`${p.id}-model`, e.target.value)}
+            placeholder={p.defModel}
+          />
+        </div>
+      ))}
     </div>
   );
 }
