@@ -643,7 +643,8 @@ function ChatSurface({
           )}
 
           <div className="space-y-6">
-            {messages.map((m) => (
+            {/* Memoizado: digitar não re-renderiza o histórico inteiro */}
+            {useMemo(() => messages.map((m) => (
               <div
                 key={m.id}
                 className={`group flex flex-col gap-1 ${m.role === "user" ? "items-end" : "items-start"}`}
@@ -739,7 +740,8 @@ function ChatSurface({
                   </div>
                 )}
               </div>
-            ))}
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+            )), [messages, editingId, editText, isLoading, speakingId])}
 
             {(status === "submitted" || attempts.length > 0) && (
               <div className="flex justify-start">
