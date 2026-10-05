@@ -122,35 +122,10 @@ export const Route = createFileRoute("/api/chat")({
             provider: providerName,
             modelId,
             run: (onErr) => {
-              const isGemini = baseURL.includes("generativelanguage");
               const provider = createOpenAICompatible({
                 name: label.split("#")[0],
                 baseURL,
                 headers: { Authorization: `Bearer ${key}` },
-                fetch: isGemini
-                  ? (async (input: RequestInfo | URL, init?: RequestInit) => {
-                      if (init?.body && typeof init.body === "string") {
-                        try {
-                          const json = JSON.parse(init.body);
-                          json.extra_body = {
-                            google: {
-                              safety_settings: [
-                                "HARM_CATEGORY_HARASSMENT",
-                                "HARM_CATEGORY_HATE_SPEECH",
-                                "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                                "HARM_CATEGORY_DANGEROUS_CONTENT",
-                                "HARM_CATEGORY_CIVIC_INTEGRITY",
-                              ].map((category) => ({ category, threshold: "BLOCK_NONE" })),
-                            },
-                          };
-                          init = { ...init, body: JSON.stringify(json) };
-                        } catch {
-                          /* mantém corpo original */
-                        }
-                      }
-                      return fetch(input, init);
-                    }) as typeof fetch
-                  : undefined,
               });
               return streamText({
                 model: provider(modelId),
