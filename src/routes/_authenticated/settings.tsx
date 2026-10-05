@@ -246,6 +246,8 @@ function SettingsPage() {
             </p>
           </div>
 
+          <ExtraKeys />
+
           <div className="space-y-4 rounded-2xl border border-border/60 bg-card/60 p-5">
             <div className="flex items-start justify-between gap-4">
               <div>
