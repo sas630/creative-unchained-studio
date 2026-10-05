@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -30,6 +31,10 @@ type ChatBody = {
   userName?: string | null;
   geminiKeys?: string | null;
   geminiModel?: string | null;
+  openaiKeys?: string | null;
+  openaiModel?: string | null;
+  kimiKeys?: string | null;
+  kimiModel?: string | null;
   intense?: boolean;
 };
 
@@ -82,9 +87,11 @@ export const Route = createFileRoute("/api/chat")({
         }
 
         const geminiKeys = parseApiKeyList(body.geminiKeys);
-        if (geminiKeys.length === 0) {
+        const openaiKeys = parseApiKeyList(body.openaiKeys);
+        const kimiKeys = parseApiKeyList(body.kimiKeys);
+        if (geminiKeys.length + openaiKeys.length + kimiKeys.length === 0) {
           return new Response(
-            "Adicione pelo menos uma chave grátis do Google Gemini em Ajustes.",
+            "Adicione uma chave do Gemini, OpenAI ou Kimi em Ajustes.",
             { status: 400 },
           );
         }
@@ -96,7 +103,6 @@ export const Route = createFileRoute("/api/chat")({
         const system = buildSystemPrompt(body);
         const modelMessages = await convertToModelMessages(body.messages as UIMessage[]);
 
-        // Só chaves grátis do Google Gemini: cada chave é uma tentativa.
         type Attempt = {
           label: string;
           provider: string;
@@ -104,33 +110,57 @@ export const Route = createFileRoute("/api/chat")({
           run: (onError: (error: unknown) => void) => ReturnType<typeof streamText>;
         };
         const attempts: Attempt[] = [];
-        // Chaves grátis do Google Gemini: cada chave é uma tentativa, então se uma
-        // bater no limite diário a próxima assume automaticamente.
-        const geminiModelId = resolveGeminiModelId(body.geminiModel);
-        const modelCandidates = [geminiModelId, ...geminiFallbackModels(geminiModelId)];
-        modelCandidates.forEach((modelId) => {
-          geminiKeys.forEach((key, i) => {
-            attempts.push({
-              label: `gemini#${i + 1}:${modelId}`,
-              provider: `Gemini grátis (chave ${i + 1}/${geminiKeys.length})`,
-              modelId,
-              run: (onErr) => {
-                const provider = createGeminiProvider(key);
-                return streamText({
-                  model: provider(modelId),
-                  maxRetries: 1,
-                  temperature,
-                  system,
-                  messages: modelMessages,
-                  onError: ({ error }) => {
-                    console.error("[chat] gemini error", error);
-                    onErr(error);
-                  },
-                });
-              },
-            });
+        const add = (
+          label: string,
+          providerName: string,
+          modelId: string,
+          baseURL: string,
+          key: string,
+          temp: number | undefined,
+        ) =>
+          attempts.push({
+            label,
+            provider: providerName,
+            modelId,
+            run: (onErr) => {
+              const provider = createOpenAICompatible({
+                name: label.split("#")[0],
+                baseURL,
+                headers: { Authorization: `Bearer ${key}` },
+              });
+              return streamText({
+                model: provider(modelId),
+                maxRetries: 0,
+                temperature: temp,
+                system,
+                messages: modelMessages,
+                onError: ({ error }) => {
+                  console.error(`[chat] ${label} error`, error);
+                  onErr(error);
+                },
+              });
+            },
           });
-        });
+
+        const geminiModelId = resolveGeminiModelId(body.geminiModel);
+        const [firstGemini, ...otherGemini] = [geminiModelId, ...geminiFallbackModels(geminiModelId)];
+        const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai";
+        const addGemini = (modelId: string) =>
+          geminiKeys.forEach((key, i) =>
+            add(`gemini#${i + 1}:${modelId}`, `Gemini (chave ${i + 1}/${geminiKeys.length})`, modelId, GEMINI_URL, key, temperature),
+          );
+        // Ordem anti-falha: Gemini preferido → Kimi → OpenAI → outros modelos Gemini.
+        addGemini(firstGemini);
+        const kimiModel = (body.kimiModel || "kimi-k2-0905-preview").trim();
+        kimiKeys.forEach((key, i) =>
+          add(`kimi#${i + 1}:${kimiModel}`, `Kimi (chave ${i + 1}/${kimiKeys.length})`, kimiModel, "https://api.moonshot.ai/v1", key, Math.min(temperature, 1)),
+        );
+        const openaiModel = (body.openaiModel || "gpt-4o-mini").trim();
+        const openaiTemp = /^(gpt-5|o\d)/.test(openaiModel) ? undefined : temperature;
+        openaiKeys.forEach((key, i) =>
+          add(`openai#${i + 1}:${openaiModel}`, `OpenAI (chave ${i + 1}/${openaiKeys.length})`, openaiModel, "https://api.openai.com/v1", key, openaiTemp),
+        );
+        otherGemini.forEach(addGemini);
         // Fallback: se todas as tentativas falharem (402/429/etc), entregamos uma
         // resposta local em vez de quebrar o chat — o usuário pode reenviar depois.
         const stream = createUIMessageStream({
