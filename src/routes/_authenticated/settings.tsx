@@ -222,6 +222,10 @@ function SettingsPage() {
               className="font-mono text-xs"
               value={geminiKeys}
               onChange={(e) => setGeminiKeys(e.target.value)}
+              onPaste={(e) => {
+                e.preventDefault();
+                setGeminiKeys(splitKeys(geminiKeys + "\n" + e.clipboardData.getData("text")));
+              }}
               placeholder={"AIza...\nAIza...\nAIza..."}
             />
             <div className="space-y-2">
@@ -312,8 +316,18 @@ function SettingsPage() {
   );
 }
 
+/** Separa chaves coladas (espaço, vírgula ou grudadas) e põe uma por linha. */
+function splitKeys(text: string) {
+  const out = text
+    .split(/[\s,;]+|(?=AQ\.)|(?=AIza)|(?=sk-or-v1-)|(?=sk-(?!or-v1))/)
+    .map((k) => k.trim())
+    .filter((k) => k.length > 10);
+  const uniq = Array.from(new Set(out));
+  return uniq.length ? uniq.join("\n") + "\n" : "";
+}
+
 const EXTRA_PROVIDERS = [
-  { id: "openrouter", title: "Chaves do OpenRouter (prioridade)", hint: "sk-or-v1-... (uma por linha)", link: "https://openrouter.ai/keys", defModel: "meta-llama/llama-3.3-70b-instruct:free" },
+  { id: "openrouter", title: "Chaves do OpenRouter (prioridade)", hint: "sk-or-v1-... (uma por linha)", link: "https://openrouter.ai/keys", defModel: "openrouter/free" },
   { id: "openai", title: "Chave da OpenAI", hint: "sk-...", link: "https://platform.openai.com/api-keys", defModel: "gpt-4o-mini" },
   { id: "kimi", title: "Chave do Kimi (Moonshot)", hint: "sk-...", link: "https://platform.moonshot.ai/console/api-keys", defModel: "kimi-k2-0905-preview" },
 ] as const;
@@ -356,6 +370,11 @@ function ExtraKeys() {
             className="font-mono text-xs"
             value={vals[`${p.id}-keys`] ?? ""}
             onChange={(e) => set(`${p.id}-keys`, e.target.value)}
+            onPaste={(e) => {
+              e.preventDefault();
+              const cur = vals[`${p.id}-keys`] ?? "";
+              set(`${p.id}-keys`, splitKeys(cur + "\n" + e.clipboardData.getData("text")));
+            }}
             placeholder={p.hint}
           />
           <p className="text-xs text-muted-foreground">

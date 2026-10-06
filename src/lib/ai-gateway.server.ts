@@ -158,7 +158,7 @@ export function parseApiKeyList(candidate: unknown): string[] {
   if (typeof candidate !== "string") return [];
   const seen = new Set<string>();
   // Também separa chaves coladas juntas (prefixos "AQ." e "AIza").
-  for (const raw of candidate.split(/[\s,;]+|(?=AQ\.)|(?=AIza)/)) {
+  for (const raw of candidate.split(/[\s,;]+|(?=AQ\.)|(?=AIza)|(?=sk-or-v1-)|(?=sk-(?!or-v1))/)) {
     const key = raw.trim();
     if (key.length > 10) seen.add(key);
   }

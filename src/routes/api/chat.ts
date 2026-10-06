@@ -187,9 +187,18 @@ export const Route = createFileRoute("/api/chat")({
             add(`gemini#${i + 1}:${modelId}`, `Gemini (chave ${i + 1}/${geminiKeys.length})`, modelId, GEMINI_URL, key, temperature),
           );
         // Ordem anti-falha: OpenRouter → Gemini preferido → Kimi → OpenAI → outros Gemini.
-        const openrouterModel = (body.openrouterModel || "meta-llama/llama-3.3-70b-instruct:free").trim();
-        openrouterKeys.forEach((key, i) =>
-          add(`openrouter#${i + 1}:${openrouterModel}`, `OpenRouter (chave ${i + 1}/${openrouterKeys.length})`, openrouterModel, "https://openrouter.ai/api/v1", key, temperature),
+        // Só modelos gratuitos: modelo escolhido (se for :free) + roteador grátis oficial.
+        const chosenOr = (body.openrouterModel || "").trim();
+        const orModels = Array.from(new Set([
+          ...(chosenOr.endsWith(":free") || chosenOr === "openrouter/free" ? [chosenOr] : []),
+          "openrouter/free",
+          "google/gemma-4-31b-it:free",
+          "nvidia/nemotron-3.5-lightning:free",
+        ])).filter((m) => m !== "meta-llama/llama-3.3-70b-instruct:free");
+        orModels.forEach((orModel) =>
+          openrouterKeys.forEach((key, i) =>
+            add(`openrouter#${i + 1}:${orModel}`, `OpenRouter (chave ${i + 1}/${openrouterKeys.length})`, orModel, "https://openrouter.ai/api/v1", key, temperature),
+          ),
         );
         addGemini(firstGemini);
         const kimiModel = (body.kimiModel || "kimi-k2-0905-preview").trim();
