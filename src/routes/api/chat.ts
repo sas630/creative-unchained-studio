@@ -34,10 +34,14 @@ type ChatBody = {
   openaiModel?: string | null;
   kimiKeys?: string | null;
   kimiModel?: string | null;
+  openrouterKeys?: string | null;
+  openrouterModel?: string | null;
+  chatId?: string | null;
   intense?: boolean;
 };
 
 import { INTENSE_RULES } from "@/lib/roleplay-prompt";
+import { createClient } from "@supabase/supabase-js";
 
 
 
@@ -88,9 +92,10 @@ export const Route = createFileRoute("/api/chat")({
         const geminiKeys = parseApiKeyList(body.geminiKeys);
         const openaiKeys = parseApiKeyList(body.openaiKeys);
         const kimiKeys = parseApiKeyList(body.kimiKeys);
-        if (geminiKeys.length + openaiKeys.length + kimiKeys.length === 0) {
+        const openrouterKeys = parseApiKeyList(body.openrouterKeys);
+        if (geminiKeys.length + openaiKeys.length + kimiKeys.length + openrouterKeys.length === 0) {
           return new Response(
-            "Adicione uma chave do Gemini, OpenAI ou Kimi em Ajustes.",
+            "Adicione uma chave do OpenRouter, Gemini, OpenAI ou Kimi em Ajustes.",
             { status: 400 },
           );
         }
@@ -100,12 +105,44 @@ export const Route = createFileRoute("/api/chat")({
             ? body.creativity
             : 0.9;
         const system = buildSystemPrompt(body);
-        const modelMessages = await convertToModelMessages(body.messages as UIMessage[]);
+        // Janela de contexto: só as últimas mensagens vão para a IA (o histórico
+        // completo continua salvo). Evita lentidão, 503 e cota estourada.
+        const allMessages = (body.messages as UIMessage[]).filter((m) =>
+          m.parts?.some((p) => p.type === "text" && (p as { text?: string }).text?.trim()),
+        );
+        const modelMessages = await convertToModelMessages(allMessages.slice(-30));
+
+        // Salvamento pelo servidor: a resposta é gravada mesmo se a tela apagar.
+        const authHeader = request.headers.get("authorization");
+        const chatId = typeof body.chatId === "string" ? body.chatId : null;
+        let db: ReturnType<typeof createClient> | null = null;
+        let userId: string | null = null;
+        if (authHeader?.startsWith("Bearer ") && chatId) {
+          const supaKey = process.env.SUPABASE_PUBLISHABLE_KEY!;
+          db = createClient(process.env.SUPABASE_URL!, supaKey, {
+            auth: { persistSession: false },
+            global: { headers: { Authorization: authHeader } },
+          });
+          const { data } = await db.auth.getUser(authHeader.slice(7));
+          userId = data.user?.id ?? null;
+          if (!userId) db = null;
+        }
+        const lastUser = [...allMessages].reverse().find((m) => m.role === "user");
+        const lastUserText = lastUser
+          ? lastUser.parts.map((p) => (p.type === "text" ? p.text : "")).join("")
+          : "";
+        if (db && userId && lastUserText) {
+          const { error } = await db
+            .from("chat_messages")
+            .insert({ chat_id: chatId, user_id: userId, role: "user", content: lastUserText } as never);
+          if (error) console.error("[chat] save user error", error);
+        }
 
         type Attempt = {
           label: string;
           provider: string;
           modelId: string;
+          key: string;
           run: (onError: (error: unknown) => void) => ReturnType<typeof streamText>;
         };
         const attempts: Attempt[] = [];
@@ -121,6 +158,7 @@ export const Route = createFileRoute("/api/chat")({
             label,
             provider: providerName,
             modelId,
+            key,
             run: (onErr) => {
               const provider = createOpenAICompatible({
                 name: label.split("#")[0],
@@ -148,7 +186,11 @@ export const Route = createFileRoute("/api/chat")({
           geminiKeys.forEach((key, i) =>
             add(`gemini#${i + 1}:${modelId}`, `Gemini (chave ${i + 1}/${geminiKeys.length})`, modelId, GEMINI_URL, key, temperature),
           );
-        // Ordem anti-falha: Gemini preferido → Kimi → OpenAI → outros modelos Gemini.
+        // Ordem anti-falha: OpenRouter → Gemini preferido → Kimi → OpenAI → outros Gemini.
+        const openrouterModel = (body.openrouterModel || "meta-llama/llama-3.3-70b-instruct:free").trim();
+        openrouterKeys.forEach((key, i) =>
+          add(`openrouter#${i + 1}:${openrouterModel}`, `OpenRouter (chave ${i + 1}/${openrouterKeys.length})`, openrouterModel, "https://openrouter.ai/api/v1", key, temperature),
+        );
         addGemini(firstGemini);
         const kimiModel = (body.kimiModel || "kimi-k2-0905-preview").trim();
         kimiKeys.forEach((key, i) =>
@@ -164,7 +206,19 @@ export const Route = createFileRoute("/api/chat")({
         // resposta local em vez de quebrar o chat — o usuário pode reenviar depois.
         const stream = createUIMessageStream({
           originalMessages: body.messages as UIMessage[],
-          execute: async ({ writer }) => {
+          execute: async ({ writer: rawWriter }) => {
+            // Se o celular desconectar, continuamos gerando e salvamos no banco.
+            const writer = {
+              write: (part: Parameters<typeof rawWriter.write>[0]) => {
+                try {
+                  rawWriter.write(part);
+                } catch {
+                  /* cliente saiu — segue gerando */
+                }
+              },
+            };
+            const badKeys = new Set<string>();
+            let fullText = "";
             const textId = crypto.randomUUID();
             let started = false;
             const start = () => {
@@ -179,6 +233,7 @@ export const Route = createFileRoute("/api/chat")({
 
             let lastError: unknown = null;
             for (const [index, attempt] of attempts.entries()) {
+              if (badKeys.has(attempt.key)) continue;
               lastError = null;
               const t0 = Date.now();
               writer.write({
@@ -220,6 +275,7 @@ export const Route = createFileRoute("/api/chat")({
                   }
                   start();
                   chars += delta.length;
+                  fullText += delta;
                   writer.write({ type: "text-delta", id: textId, delta });
                 }
               } catch (error) {
@@ -227,6 +283,9 @@ export const Route = createFileRoute("/api/chat")({
               }
               if (streamError) {
                 lastError = streamError;
+                const st = (streamError as { statusCode?: number } | null)?.statusCode;
+                // chave inválida/bloqueada: não tenta de novo com outros modelos
+                if (st === 400 || st === 401 || st === 403) badKeys.add(attempt.key);
                 console.error(`[chat] ${attempt.label} falhou`, streamError);
               } else if (chars === 0) {
                 lastError = new Error(
@@ -260,6 +319,14 @@ export const Route = createFileRoute("/api/chat")({
               if (chars > 0) break;
             }
 
+
+            if (fullText.trim() && db && userId) {
+              const { error } = await db
+                .from("chat_messages")
+                .insert({ chat_id: chatId, user_id: userId, role: "assistant", content: fullText } as never);
+              if (error) console.error("[chat] save assistant error", error);
+              await db.from("chats").update({ updated_at: new Date().toISOString() } as never).eq("id", chatId!);
+            }
 
             if (!lastError) {
               writer.write({ type: "text-end", id: textId });

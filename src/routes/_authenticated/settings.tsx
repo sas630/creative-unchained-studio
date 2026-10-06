@@ -313,6 +313,7 @@ function SettingsPage() {
 }
 
 const EXTRA_PROVIDERS = [
+  { id: "openrouter", title: "Chaves do OpenRouter (prioridade)", hint: "sk-or-v1-... (uma por linha)", link: "https://openrouter.ai/keys", defModel: "meta-llama/llama-3.3-70b-instruct:free" },
   { id: "openai", title: "Chave da OpenAI", hint: "sk-...", link: "https://platform.openai.com/api-keys", defModel: "gpt-4o-mini" },
   { id: "kimi", title: "Chave do Kimi (Moonshot)", hint: "sk-...", link: "https://platform.moonshot.ai/console/api-keys", defModel: "kimi-k2-0905-preview" },
 ] as const;
@@ -336,7 +337,7 @@ function ExtraKeys() {
       <div>
         <Label className="text-base">Chaves extras (anti-falha)</Label>
         <p className="mt-1 text-xs text-muted-foreground">
-          Se o Gemini der “Too Many Requests”, o chat troca sozinho para Kimi e depois OpenAI.
+          O chat tenta OpenRouter primeiro, depois Gemini, Kimi e OpenAI. Chaves inválidas são puladas sozinhas.
           Salvo automaticamente neste aparelho.
         </p>
       </div>
@@ -357,6 +358,9 @@ function ExtraKeys() {
             onChange={(e) => set(`${p.id}-keys`, e.target.value)}
             placeholder={p.hint}
           />
+          <p className="text-xs text-muted-foreground">
+            {(vals[`${p.id}-keys`] ?? "").split(/[\s,;]+/).filter((k) => k.trim().length > 10).length} chave(s) detectada(s)
+          </p>
           <Input
             className="font-mono text-xs"
             value={vals[`${p.id}-model`] ?? ""}
