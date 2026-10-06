@@ -135,6 +135,7 @@ function ChatSurface({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const persistedIds = useRef(new Set(initialMessages.map((m) => m.id)));
+  const localIds = useRef(new Set<string>());
   const [intense, setIntense] = useState(false);
   useEffect(() => {
     setIntense(localStorage.getItem(`lumen-intense-${chatId}`) === "1");
@@ -164,12 +165,20 @@ function ChatSurface({
                 openaiModel: localStorage.getItem("lumen-openai-model") ?? "",
                 kimiKeys: localStorage.getItem("lumen-kimi-keys") ?? "",
                 kimiModel: localStorage.getItem("lumen-kimi-model") ?? "",
+                openrouterKeys: localStorage.getItem("lumen-openrouter-keys") ?? "",
+                openrouterModel: localStorage.getItem("lumen-openrouter-model") ?? "",
               }
             : {}),
           intense,
+          chatId,
+        },
+        headers: async (): Promise<Record<string, string>> => {
+          const { data } = await supabase.auth.getSession();
+          const token = data.session?.access_token;
+          return token ? { Authorization: `Bearer ${token}` } : {};
         },
       }),
-    [snapshot, profile, intense],
+    [snapshot, profile, intense, chatId],
   );
 
 
@@ -203,6 +212,41 @@ function ChatSurface({
   );
   const isLoading = status === "submitted" || status === "streaming" || localBusy;
 
+  // Mantém a tela acordada enquanto a resposta é gerada.
+  useEffect(() => {
+    if (!isLoading || typeof navigator === "undefined" || !("wakeLock" in navigator)) return;
+    let lock: { release: () => Promise<void> } | null = null;
+    (navigator as unknown as { wakeLock: { request: (t: string) => Promise<typeof lock> } }).wakeLock
+      .request("screen")
+      .then((l) => (lock = l))
+      .catch(() => {});
+    return () => void lock?.release().catch(() => {});
+  }, [isLoading]);
+
+  // Ao voltar para o app, recarrega do banco a resposta salva pelo servidor.
+  useEffect(() => {
+    const onVisible = async () => {
+      if (document.visibilityState !== "visible" || isLoading) return;
+      const last = messages[messages.length - 1];
+      if (last && last.role === "assistant" && !isFallback(last)) return;
+      const { data } = await supabase
+        .from("chat_messages")
+        .select("id, role, content")
+        .eq("chat_id", chatId)
+        .order("created_at", { ascending: true });
+      if (!data?.length || data[data.length - 1].role !== "assistant") return;
+      const fresh: UIMessage[] = data.map((r) => ({
+        id: r.id,
+        role: r.role as UIMessage["role"],
+        parts: [{ type: "text", text: r.content }],
+      }));
+      fresh.forEach((m) => persistedIds.current.add(m.id));
+      setMessages(fresh);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [messages, isLoading, chatId, setMessages]);
+
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -216,10 +260,13 @@ function ChatSurface({
     );
     if (unsaved.length === 0) return;
     unsaved.forEach((m) => persistedIds.current.add(m.id));
+    // Respostas pela nuvem já são salvas pelo servidor; aqui só o modo local.
+    const localOnly = unsaved.filter((m) => localIds.current.has(m.id));
+    if (localOnly.length === 0) return;
     void (async () => {
       const { data: auth } = await supabase.auth.getUser();
       if (!auth.user) return;
-      const rows = unsaved.map((m) => ({
+      const rows = localOnly.map((m) => ({
         chat_id: chatId,
         user_id: auth.user!.id,
         role: m.role,
@@ -325,6 +372,8 @@ function ChatSurface({
     };
     const history = [...messages.filter((m) => !isFallback(m)), userMessage];
     const assistantId = crypto.randomUUID();
+    localIds.current.add(userMessage.id);
+    localIds.current.add(assistantId);
     setMessages([...history, { id: assistantId, role: "assistant", parts: [{ type: "text", text: "" }] }]);
     setLocalBusy(true);
     setAttempts([
@@ -442,8 +491,7 @@ function ChatSurface({
     if (!lastUser) return;
     // remove também a última fala do usuário: sendMessage a reinsere
     setMessages(withoutFallback.filter((m) => m.id !== lastUser.id));
-    persistedIds.current.delete(lastUser.id);
-    await supabase.from("chat_messages").delete().eq("id", lastUser.id);
+    await removeRows([lastUser]);
     await sendMessage({ text: textOf(lastUser) });
   }
 
@@ -451,10 +499,7 @@ function ChatSurface({
     const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
     const lastUser = [...messages].reverse().find((m) => m.role === "user");
     if (!lastUser) return;
-    if (lastAssistant) {
-      await supabase.from("chat_messages").delete().eq("id", lastAssistant.id);
-      persistedIds.current.delete(lastAssistant.id);
-    }
+    await removeRows(lastAssistant ? [lastAssistant, lastUser] : [lastUser]);
     const trimmed = messages.filter((m) => m.id !== lastAssistant?.id && m.id !== lastUser.id);
     setMessages(trimmed);
     await sendMessage({ text: textOf(lastUser) });
