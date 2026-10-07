@@ -218,6 +218,16 @@ export const Route = createFileRoute("/api/chat")({
           add(`openai#${i + 1}:${openaiModel}`, `OpenAI (chave ${i + 1}/${openaiKeys.length})`, openaiModel, "https://api.openai.com/v1", key, openaiTemp),
         );
         otherGemini.forEach(addGemini);
+        // Modo rápido: modelos leves primeiro. Auto-regulagem: o último que funcionou vai na frente.
+        const isLight = (m: string) => /lite|flash|lightning|mini/i.test(m);
+        attempts.sort((a, b) => {
+          const ga = lastGood.get(a.label) ?? 0;
+          const gb = lastGood.get(b.label) ?? 0;
+          if (ga !== gb) return gb - ga;
+          if (body.fast) return Number(isLight(b.modelId)) - Number(isLight(a.modelId));
+          return 0;
+        });
+        const firstTokenTimeout = body.fast ? 8000 : 20000;
         // Fallback: se todas as tentativas falharem (402/429/etc), entregamos uma
         // resposta local em vez de quebrar o chat — o usuário pode reenviar depois.
         const stream = createUIMessageStream({
