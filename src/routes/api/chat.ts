@@ -38,7 +38,11 @@ type ChatBody = {
   openrouterModel?: string | null;
   chatId?: string | null;
   intense?: boolean;
+  fast?: boolean;
 };
+
+// Auto-regulagem: lembra o último provedor que funcionou (por instância).
+const lastGood = new Map<string, number>();
 
 import { INTENSE_RULES } from "@/lib/roleplay-prompt";
 import { createClient } from "@supabase/supabase-js";
@@ -104,13 +108,15 @@ export const Route = createFileRoute("/api/chat")({
           typeof body.creativity === "number" && body.creativity >= 0 && body.creativity <= 2
             ? body.creativity
             : 0.9;
-        const system = buildSystemPrompt(body);
-        // Janela de contexto: só as últimas mensagens vão para a IA (o histórico
-        // completo continua salvo). Evita lentidão, 503 e cota estourada.
+        const system = buildSystemPrompt(body) +
+          (body.fast ? "\n\nMODO RÁPIDO: responda em 1 a 3 parágrafos curtos, direto ao ponto." : "");
+        // Histórico completo vai para a IA (modo rápido usa só o recente).
         const allMessages = (body.messages as UIMessage[]).filter((m) =>
           m.parts?.some((p) => p.type === "text" && (p as { text?: string }).text?.trim()),
         );
-        const modelMessages = await convertToModelMessages(allMessages.slice(-30));
+        const modelMessages = await convertToModelMessages(
+          body.fast ? allMessages.slice(-20) : allMessages,
+        );
 
         // Salvamento pelo servidor: a resposta é gravada mesmo se a tela apagar.
         const authHeader = request.headers.get("authorization");
@@ -143,7 +149,7 @@ export const Route = createFileRoute("/api/chat")({
           provider: string;
           modelId: string;
           key: string;
-          run: (onError: (error: unknown) => void) => ReturnType<typeof streamText>;
+          run: (onError: (error: unknown) => void, signal?: AbortSignal) => ReturnType<typeof streamText>;
         };
         const attempts: Attempt[] = [];
         const add = (
@@ -159,7 +165,7 @@ export const Route = createFileRoute("/api/chat")({
             provider: providerName,
             modelId,
             key,
-            run: (onErr) => {
+            run: (onErr, signal) => {
               const provider = createOpenAICompatible({
                 name: label.split("#")[0],
                 baseURL,
@@ -171,6 +177,7 @@ export const Route = createFileRoute("/api/chat")({
                 temperature: temp,
                 system,
                 messages: modelMessages,
+                abortSignal: signal,
                 onError: ({ error }) => {
                   console.error(`[chat] ${label} error`, error);
                   onErr(error);
@@ -211,6 +218,16 @@ export const Route = createFileRoute("/api/chat")({
           add(`openai#${i + 1}:${openaiModel}`, `OpenAI (chave ${i + 1}/${openaiKeys.length})`, openaiModel, "https://api.openai.com/v1", key, openaiTemp),
         );
         otherGemini.forEach(addGemini);
+        // Modo rápido: modelos leves primeiro. Auto-regulagem: o último que funcionou vai na frente.
+        const isLight = (m: string) => /lite|flash|lightning|mini/i.test(m);
+        attempts.sort((a, b) => {
+          const ga = lastGood.get(a.label) ?? 0;
+          const gb = lastGood.get(b.label) ?? 0;
+          if (ga !== gb) return gb - ga;
+          if (body.fast) return Number(isLight(b.modelId)) - Number(isLight(a.modelId));
+          return 0;
+        });
+        const firstTokenTimeout = body.fast ? 8000 : 20000;
         // Fallback: se todas as tentativas falharem (402/429/etc), entregamos uma
         // resposta local em vez de quebrar o chat — o usuário pode reenviar depois.
         const stream = createUIMessageStream({
@@ -261,12 +278,15 @@ export const Route = createFileRoute("/api/chat")({
               let streamError: unknown = null;
               let chars = 0;
               let firstByteMs: number | null = null;
+              const ac = new AbortController();
+              const timer = setTimeout(() => ac.abort(), firstTokenTimeout);
               try {
                 for await (const delta of attempt.run((e) => {
                   streamError = e;
-                }).textStream) {
+                }, ac.signal).textStream) {
                   if (!delta) continue;
                   if (firstByteMs === null) {
+                    clearTimeout(timer);
                     firstByteMs = Date.now() - t0;
                     writer.write({
                       type: "data-attempt",
@@ -290,6 +310,11 @@ export const Route = createFileRoute("/api/chat")({
               } catch (error) {
                 streamError = error;
               }
+              clearTimeout(timer);
+              if (ac.signal.aborted && chars === 0) {
+                streamError = new Error(`Lento demais (sem resposta em ${firstTokenTimeout / 1000}s) — pulando automaticamente.`);
+              }
+              if (!streamError && chars > 0) lastGood.set(attempt.label, Date.now());
               if (streamError) {
                 lastError = streamError;
                 const st = (streamError as { statusCode?: number } | null)?.statusCode;

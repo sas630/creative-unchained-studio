@@ -146,6 +146,16 @@ function ChatSurface({
     localStorage.setItem(`lumen-intense-${chatId}`, next ? "1" : "0");
     toast(next ? "Modo intenso ligado: o personagem não vai amolecer." : "Modo intenso desligado.");
   }
+  const [fast, setFast] = useState(false);
+  useEffect(() => {
+    setFast(localStorage.getItem("lumen-fast") === "1");
+  }, []);
+  function toggleFast() {
+    const next = !fast;
+    setFast(next);
+    localStorage.setItem("lumen-fast", next ? "1" : "0");
+    toast(next ? "Respostas rápidas ligadas ⚡" : "Respostas rápidas desligadas.");
+  }
 
   const transport = useMemo(
     () =>
@@ -170,6 +180,7 @@ function ChatSurface({
               }
             : {}),
           intense,
+          fast,
           chatId,
         },
         headers: async (): Promise<Record<string, string>> => {
@@ -178,7 +189,7 @@ function ChatSurface({
           return token ? { Authorization: `Bearer ${token}` } : {};
         },
       }),
-    [snapshot, profile, intense, chatId],
+    [snapshot, profile, intense, fast, chatId],
   );
 
 
@@ -667,6 +678,14 @@ function ChatSurface({
             title="Modo super intenso: o personagem nunca amolece"
           >
             <Flame className="size-4" /> Intenso
+          </Button>
+          <Button
+            size="sm"
+            variant={fast ? "secondary" : "ghost"}
+            onClick={toggleFast}
+            title="Respostas rápidas e curtas"
+          >
+            ⚡ Rápido
           </Button>
           <Button
             size="sm"
