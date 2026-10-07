@@ -310,6 +310,11 @@ export const Route = createFileRoute("/api/chat")({
               } catch (error) {
                 streamError = error;
               }
+              clearTimeout(timer);
+              if (ac.signal.aborted && chars === 0) {
+                streamError = new Error(`Lento demais (sem resposta em ${firstTokenTimeout / 1000}s) — pulando automaticamente.`);
+              }
+              if (!streamError && chars > 0) lastGood.set(attempt.label, Date.now());
               if (streamError) {
                 lastError = streamError;
                 const st = (streamError as { statusCode?: number } | null)?.statusCode;
