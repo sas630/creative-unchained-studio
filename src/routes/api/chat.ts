@@ -278,12 +278,15 @@ export const Route = createFileRoute("/api/chat")({
               let streamError: unknown = null;
               let chars = 0;
               let firstByteMs: number | null = null;
+              const ac = new AbortController();
+              const timer = setTimeout(() => ac.abort(), firstTokenTimeout);
               try {
                 for await (const delta of attempt.run((e) => {
                   streamError = e;
-                }).textStream) {
+                }, ac.signal).textStream) {
                   if (!delta) continue;
                   if (firstByteMs === null) {
+                    clearTimeout(timer);
                     firstByteMs = Date.now() - t0;
                     writer.write({
                       type: "data-attempt",
