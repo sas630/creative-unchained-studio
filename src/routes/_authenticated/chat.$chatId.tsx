@@ -170,7 +170,6 @@ function ChatSurface({
               }
             : {}),
           intense,
-          fast,
           chatId,
         },
         headers: async (): Promise<Record<string, string>> => {
