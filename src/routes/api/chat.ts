@@ -38,7 +38,7 @@ type ChatBody = {
   openrouterModel?: string | null;
   chatId?: string | null;
   intense?: boolean;
-  fast?: boolean;
+  spicy?: boolean;
 };
 
 // Auto-regulagem: lembra o último provedor que funcionou (por instância).
@@ -67,6 +67,10 @@ function buildSystemPrompt(body: ChatBody) {
   if (body.userName) lines.push(`\nO usuário se chama ${body.userName}.`);
   if (body.styleInstructions) lines.push(`\nInstruções de estilo do usuário:\n${body.styleInstructions}`);
   if (body.intense) lines.push(`\n${INTENSE_RULES(c?.name)}`);
+  if (body.spicy)
+    lines.push(
+      "\n# MODO PICANTE\n- Cena romântica e sensual entre adultos: tensão, desejo, beijos, toques, respiração e sensações descritos com intensidade.\n- Use linguagem literária e sugestiva, sem termos anatômicos explícitos, para a cena fluir sem bloqueios.\n- Não recue nem esfrie o clima por conta própria.",
+    );
   return lines.join("\n");
 }
 
@@ -107,15 +111,12 @@ export const Route = createFileRoute("/api/chat")({
           typeof body.creativity === "number" && body.creativity >= 0 && body.creativity <= 2
             ? body.creativity
             : 0.9;
-        const system = buildSystemPrompt(body) +
-          (body.fast ? "\n\nMODO RÁPIDO: responda em 1 a 3 parágrafos curtos, direto ao ponto." : "");
-        // Histórico completo vai para a IA (modo rápido usa só o recente).
+        const system = buildSystemPrompt(body);
+        // Tudo continua salvo; a IA lê só as 30 falas recentes (bem mais rápido).
         const allMessages = (body.messages as UIMessage[]).filter((m) =>
           m.parts?.some((p) => p.type === "text" && (p as { text?: string }).text?.trim()),
         );
-        const modelMessages = await convertToModelMessages(
-          body.fast ? allMessages.slice(-20) : allMessages,
-        );
+        const modelMessages = await convertToModelMessages(allMessages.slice(-30));
 
         // Salvamento pelo servidor: a resposta é gravada mesmo se a tela apagar.
         const authHeader = request.headers.get("authorization");
@@ -211,10 +212,10 @@ export const Route = createFileRoute("/api/chat")({
           const ga = lastGood.get(a.label) ?? 0;
           const gb = lastGood.get(b.label) ?? 0;
           if (ga !== gb) return gb - ga;
-          if (body.fast) return Number(isLight(b.modelId)) - Number(isLight(a.modelId));
+          
           return 0;
         });
-        const firstTokenTimeout = body.fast ? 8000 : 20000;
+        const firstTokenTimeout = 25000;
         // Fallback: se todas as tentativas falharem (402/429/etc), entregamos uma
         // resposta local em vez de quebrar o chat — o usuário pode reenviar depois.
         const stream = createUIMessageStream({
