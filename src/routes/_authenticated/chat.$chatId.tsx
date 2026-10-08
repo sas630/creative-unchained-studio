@@ -146,6 +146,16 @@ function ChatSurface({
     localStorage.setItem(`lumen-intense-${chatId}`, next ? "1" : "0");
     toast(next ? "Modo intenso ligado: o personagem não vai amolecer." : "Modo intenso desligado.");
   }
+  const [spicy, setSpicy] = useState(false);
+  useEffect(() => {
+    setSpicy(localStorage.getItem(`lumen-spicy-${chatId}`) === "1");
+  }, [chatId]);
+  function toggleSpicy() {
+    const next = !spicy;
+    setSpicy(next);
+    localStorage.setItem(`lumen-spicy-${chatId}`, next ? "1" : "0");
+    toast(next ? "Modo picante ligado." : "Modo picante desligado.");
+  }
 
   const transport = useMemo(
     () =>
@@ -170,6 +180,7 @@ function ChatSurface({
               }
             : {}),
           intense,
+          spicy,
           chatId,
         },
         headers: async (): Promise<Record<string, string>> => {
@@ -178,7 +189,7 @@ function ChatSurface({
           return token ? { Authorization: `Bearer ${token}` } : {};
         },
       }),
-    [snapshot, profile, intense, fast, chatId],
+    [snapshot, profile, intense, spicy, chatId],
   );
 
 
@@ -359,7 +370,6 @@ function ChatSurface({
     const last = messages[messages.length - 1];
     if (!last || last.role !== "assistant" || isFallback(last) || spokenIds.current.has(last.id)) return;
     spokenIds.current.add(last.id);
-    if (voiceOn) speak(last);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, status, localBusy, voiceOn]);
 
@@ -654,11 +664,11 @@ function ChatSurface({
         <div className="ml-auto flex gap-1">
           <Button
             size="sm"
-            variant={voiceOn ? "secondary" : "ghost"}
-            onClick={toggleVoice}
-            title="Ler respostas em voz alta automaticamente"
+            variant={spicy ? "destructive" : "ghost"}
+            onClick={toggleSpicy}
+            title="Modo picante: cenas românticas e sensuais mais quentes"
           >
-            {voiceOn ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />} Voz
+            🌶️ Picante
           </Button>
           <Button
             size="sm"
@@ -728,18 +738,6 @@ function ChatSurface({
 
                 {editingId !== m.id && (
                   <div className="flex gap-1 opacity-80 transition-opacity hover:opacity-100">
-                    {m.role === "assistant" && textOf(m) && (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="size-7 text-muted-foreground"
-                        title={speakingId === m.id ? "Parar" : "Ler em voz alta"}
-                        aria-label={speakingId === m.id ? "Parar" : "Ler em voz alta"}
-                        onClick={() => (speakingId === m.id ? stopSpeaking() : speak(m))}
-                      >
-                        {speakingId === m.id ? <Square className="size-3.5" /> : <Volume2 className="size-3.5" />}
-                      </Button>
-                    )}
                     <Button
                       size="icon"
                       variant="ghost"
