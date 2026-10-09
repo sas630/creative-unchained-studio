@@ -616,7 +616,8 @@ function ChatSurface({
     setMessages(messages.slice(0, index));
     setAttempts([]);
     await removeRows(tail);
-    await sendMessage({ text });
+    if (localMode) await sendLocal(text);
+    else await sendCloud(text);
   }
 
   async function branchFrom(target: UIMessage) {
