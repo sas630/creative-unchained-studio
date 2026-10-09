@@ -39,6 +39,7 @@ type ChatBody = {
   chatId?: string | null;
   intense?: boolean;
   spicy?: boolean;
+  userSaved?: boolean;
 };
 
 // Auto-regulagem: lembra o último provedor que funcionou (por instância).
@@ -137,7 +138,7 @@ export const Route = createFileRoute("/api/chat")({
         const lastUserText = lastUser
           ? lastUser.parts.map((p) => (p.type === "text" ? p.text : "")).join("")
           : "";
-        if (db && userId && lastUserText) {
+        if (db && userId && lastUserText && !body.userSaved) {
           const { error } = await db
             .from("chat_messages")
             .insert({ chat_id: chatId, user_id: userId, role: "user", content: lastUserText } as never);
