@@ -470,6 +470,26 @@ function ChatSurface({
     }
   }
 
+  // Grava a fala no banco ANTES de chamar a IA: nunca se perde.
+  async function saveUserFirst(text: string) {
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) return false;
+    const { error } = await supabase
+      .from("chat_messages")
+      .insert({ chat_id: chatId, user_id: auth.user.id, role: "user", content: text });
+    if (error) {
+      toast.error("Não consegui salvar sua fala: " + error.message);
+      return false;
+    }
+    await supabase.from("chats").update({ updated_at: new Date().toISOString() }).eq("id", chatId);
+    return true;
+  }
+
+  async function sendCloud(text: string) {
+    const saved = await saveUserFirst(text);
+    await sendMessage({ text }, { body: { userSaved: saved } });
+  }
+
   async function submit(e?: React.FormEvent) {
     e?.preventDefault();
     const text = input.trim();
@@ -480,7 +500,7 @@ function ChatSurface({
       await sendLocal(text);
       return;
     }
-    await sendMessage({ text });
+    await sendCloud(text);
   }
 
   const fallbackMessage = messages.length > 0 && isFallback(messages[messages.length - 1])
@@ -502,7 +522,7 @@ function ChatSurface({
     // remove também a última fala do usuário: sendMessage a reinsere
     setMessages(withoutFallback.filter((m) => m.id !== lastUser.id));
     await removeRows([lastUser]);
-    await sendMessage({ text: textOf(lastUser) });
+    await sendCloud(textOf(lastUser));
   }
 
   async function regenerate() {
@@ -512,7 +532,7 @@ function ChatSurface({
     await removeRows(lastAssistant ? [lastAssistant, lastUser] : [lastUser]);
     const trimmed = messages.filter((m) => m.id !== lastAssistant?.id && m.id !== lastUser.id);
     setMessages(trimmed);
-    await sendMessage({ text: textOf(lastUser) });
+    await sendCloud(textOf(lastUser));
   }
 
   async function removeRows(list: UIMessage[]) {
