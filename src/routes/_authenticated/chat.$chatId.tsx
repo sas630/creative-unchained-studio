@@ -99,6 +99,11 @@ function ChatRoom() {
       title={data.chat.title}
       snapshot={(data.chat.character_snapshot as Snapshot | null) ?? null}
       initialMessages={initial}
+      initialAlts={Object.fromEntries(
+        data.messages
+          .filter((m) => Array.isArray(m.alternatives) && (m.alternatives as unknown[]).length > 1)
+          .map((m) => [m.id, m.alternatives as string[]]),
+      )}
       profile={data.profile}
     />
   );
@@ -109,14 +114,17 @@ function ChatSurface({
   title,
   snapshot,
   initialMessages,
+  initialAlts,
   profile,
 }: {
+  initialAlts: Record<string, string[]>;
   chatId: string;
   title: string;
   snapshot: Snapshot | null;
   initialMessages: UIMessage[];
   profile: {
     display_name: string | null;
+    user_persona?: string | null;
     default_model: string;
     creativity: number;
     style_instructions: string | null;
@@ -167,6 +175,7 @@ function ChatSurface({
           creativity: profile?.creativity,
           styleInstructions: profile?.style_instructions,
           userName: profile?.display_name,
+          userPersona: profile?.user_persona,
           geminiKeys: profile?.gemini_api_keys,
           geminiModel: profile?.gemini_model,
           ...(typeof window !== "undefined"
@@ -195,7 +204,9 @@ function ChatSurface({
 
   const [attempts, setAttempts] = useState<AttemptEvent[]>([]);
 
-  const { messages, sendMessage, status, setMessages } = useChat({
+  const [alts, setAlts] = useState<Record<string, string[]>>(initialAlts);
+  const pendingAlts = useRef<string[] | null>(null);
+  const { messages, sendMessage, status, setMessages, regenerate: chatRegenerate } = useChat({
     id: chatId,
     messages: initialMessages,
     transport,
@@ -292,6 +303,33 @@ function ChatSurface({
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  // Swipes: quando a nova versão chega, junta com as anteriores.
+  useEffect(() => {
+    if (status !== "ready" || !pendingAlts.current) return;
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant") return;
+    const prev = pendingAlts.current;
+    pendingAlts.current = null;
+    if (isFallback(last)) return;
+    setAlts((a) => ({ ...a, [last.id]: [...prev, textOf(last)] }));
+  }, [status, messages]);
+
+  async function pickAlt(m: UIMessage, idx: number) {
+    const list = alts[m.id];
+    if (!list || isLoading) return;
+    const next = list[(idx + list.length) % list.length];
+    const current = textOf(m);
+    setMessages((prev) =>
+      prev.map((x) => (x.id === m.id ? { ...x, parts: [{ type: "text", text: next }] } : x)),
+    );
+    await supabase
+      .from("chat_messages")
+      .update({ content: next, alternatives: list })
+      .eq("chat_id", chatId)
+      .eq("role", "assistant")
+      .eq("content", current);
+  }
 
   // ---- Leitura em voz alta (voz do navegador: grátis e sem limites) ----
   const [voiceOn, setVoiceOn] = useState(false);
@@ -519,20 +557,35 @@ function ChatSurface({
     const withoutFallback = messages.filter((m) => m.id !== fallbackMessage.id);
     const lastUser = [...withoutFallback].reverse().find((m) => m.role === "user");
     if (!lastUser) return;
-    // remove também a última fala do usuário: sendMessage a reinsere
-    setMessages(withoutFallback.filter((m) => m.id !== lastUser.id));
-    await removeRows([lastUser]);
-    await sendCloud(textOf(lastUser));
+    // a fala do usuário fica salva; só pedimos a resposta de novo
+    setMessages(withoutFallback);
+    setAttempts([]);
+    await chatRegenerate({ body: { userSaved: true } });
   }
 
   async function regenerate() {
     const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
     const lastUser = [...messages].reverse().find((m) => m.role === "user");
-    if (!lastUser) return;
-    await removeRows(lastAssistant ? [lastAssistant, lastUser] : [lastUser]);
-    const trimmed = messages.filter((m) => m.id !== lastAssistant?.id && m.id !== lastUser.id);
+    if (!lastUser || isLoading) return;
+    if (localMode) {
+      await removeRows(lastAssistant ? [lastAssistant, lastUser] : [lastUser]);
+      setMessages(messages.filter((m) => m.id !== lastAssistant?.id && m.id !== lastUser.id));
+      await sendLocal(textOf(lastUser));
+      return;
+    }
+    let previous: string[] = [];
+    let trimmed = messages;
+    if (lastAssistant && messages[messages.length - 1]?.id === lastAssistant.id) {
+      if (!isFallback(lastAssistant)) {
+        previous = alts[lastAssistant.id] ?? [textOf(lastAssistant)];
+        await removeRows([lastAssistant]);
+      }
+      trimmed = messages.slice(0, -1);
+    }
+    pendingAlts.current = previous.length ? previous : null;
     setMessages(trimmed);
-    await sendCloud(textOf(lastUser));
+    setAttempts([]);
+    await chatRegenerate({ body: { userSaved: true, alternatives: previous } });
   }
 
   async function removeRows(list: UIMessage[]) {
@@ -757,6 +810,24 @@ function ChatSurface({
                   </div>
                 )}
 
+                {m.role === "assistant" && (alts[m.id]?.length ?? 0) > 1 && (() => {
+                  const list = alts[m.id];
+                  const cur = Math.max(0, list.indexOf(textOf(m)));
+                  return (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Button size="icon" variant="ghost" className="size-7" aria-label="Versão anterior"
+                        disabled={isLoading} onClick={() => void pickAlt(m, cur - 1)}>
+                        <ChevronLeft className="size-4" />
+                      </Button>
+                      <span className="tabular-nums">{cur + 1} / {list.length}</span>
+                      <Button size="icon" variant="ghost" className="size-7" aria-label="Próxima versão"
+                        disabled={isLoading} onClick={() => void pickAlt(m, cur + 1)}>
+                        <ChevronRight className="size-4" />
+                      </Button>
+                    </div>
+                  );
+                })()}
+
                 {editingId !== m.id && (
                   <div className="flex gap-1 opacity-80 transition-opacity hover:opacity-100">
                     <Button
@@ -805,7 +876,7 @@ function ChatSurface({
                 )}
               </div>
             // eslint-disable-next-line react-hooks/exhaustive-deps
-            )), [messages, editingId, editText, isLoading, speakingId])}
+            )), [messages, editingId, editText, isLoading, speakingId, alts])}
 
             {(status === "submitted" || attempts.length > 0) && (
               <div className="flex justify-start">
@@ -825,8 +896,7 @@ function ChatSurface({
                           className={a.phase === "error" ? "text-amber-300" : ""}
                         >
                           <span className="text-foreground/70">
-                            [{a.index}/{a.total}] {a.fallback ? "fallback → " : ""}
-                            {a.provider} · {a.model}
+                            {a.fallback ? "↪ " : ""}{a.provider} · {a.model}
                           </span>{" "}
                           {a.phase === "start" && "conectando…"}
                           {a.phase === "first-token" && `1º token em ${a.ms} ms`}
