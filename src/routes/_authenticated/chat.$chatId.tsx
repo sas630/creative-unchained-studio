@@ -331,6 +331,115 @@ function ChatSurface({
       .eq("content", current);
   }
 
+  // ---- Continuar no mesmo balão / nova versão de qualquer fala ----
+  const [workingId, setWorkingId] = useState<string | null>(null);
+  async function streamRaw(history: UIMessage[], extra: Record<string, unknown>, onDelta: (d: string) => void) {
+    const { data: s } = await supabase.auth.getSession();
+    const token = s.session?.access_token;
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({
+        character: snapshot,
+        creativity: profile?.creativity,
+        styleInstructions: profile?.style_instructions,
+        userName: profile?.display_name,
+        userPersona: profile?.user_persona,
+        geminiKeys: profile?.gemini_api_keys,
+        geminiModel: profile?.gemini_model,
+        openaiKeys: localStorage.getItem("lumen-openai-keys") ?? "",
+        openaiModel: localStorage.getItem("lumen-openai-model") ?? "",
+        kimiKeys: localStorage.getItem("lumen-kimi-keys") ?? "",
+        kimiModel: localStorage.getItem("lumen-kimi-model") ?? "",
+        intense,
+        spicy,
+        chatId,
+        raw: true,
+        messages: history,
+        ...extra,
+      }),
+    });
+    if (!res.ok || !res.body) throw new Error(await res.text().catch(() => "Falhou"));
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+    let failed = false;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.startsWith("data:")) continue;
+        try {
+          const ev = JSON.parse(line.slice(5).trim());
+          if (ev.type === "data-fallback") failed = true;
+          else if (ev.type === "text-delta" && !String(ev.delta).includes("⏸️")) onDelta(ev.delta);
+        } catch {
+          /* linha [DONE] */
+        }
+      }
+    }
+    if (failed) throw new Error("A IA não respondeu agora. Tente de novo em instantes.");
+  }
+
+  async function continueMsg(m: UIMessage) {
+    if (isLoading || workingId) return;
+    const idx = messages.findIndex((x) => x.id === m.id);
+    const original = textOf(m);
+    let text = original;
+    setWorkingId(m.id);
+    try {
+      await streamRaw(messages.slice(0, idx + 1), { continueText: original }, (d) => {
+        if (text === original && !/^[\s.,;:!?…)"”]/.test(d) && !/\s$/.test(text)) d = " " + d;
+        text += d;
+        setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, parts: [{ type: "text", text }] } : x)));
+      });
+      const list = alts[m.id]?.map((a) => (a === original ? text : a));
+      if (list) setAlts((a) => ({ ...a, [m.id]: list }));
+      await supabase
+        .from("chat_messages")
+        .update({ content: text, ...(list ? { alternatives: list } : {}) })
+        .eq("chat_id", chatId)
+        .eq("role", "assistant")
+        .eq("content", original);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não deu para continuar.");
+    } finally {
+      setWorkingId(null);
+    }
+  }
+
+  async function newVersion(m: UIMessage) {
+    if (isLoading || workingId) return;
+    const idx = messages.findIndex((x) => x.id === m.id);
+    const original = textOf(m);
+    const base = alts[m.id]?.length ? alts[m.id] : [original];
+    let text = "";
+    setWorkingId(m.id);
+    try {
+      await streamRaw(messages.slice(0, idx), {}, (d) => {
+        text += d;
+        setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, parts: [{ type: "text", text }] } : x)));
+      });
+      if (!text.trim()) throw new Error("Resposta vazia.");
+      const list = [...base, text];
+      setAlts((a) => ({ ...a, [m.id]: list }));
+      await supabase
+        .from("chat_messages")
+        .update({ content: text, alternatives: list })
+        .eq("chat_id", chatId)
+        .eq("role", "assistant")
+        .eq("content", original);
+    } catch (e) {
+      setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, parts: [{ type: "text", text: original }] } : x)));
+      toast.error(e instanceof Error ? e.message : "Não deu para gerar outra versão.");
+    } finally {
+      setWorkingId(null);
+    }
+  }
+
   // ---- Leitura em voz alta (voz do navegador: grátis e sem limites) ----
   const [voiceOn, setVoiceOn] = useState(false);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
