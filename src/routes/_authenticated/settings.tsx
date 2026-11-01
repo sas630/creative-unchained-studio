@@ -48,6 +48,7 @@ const GEMINI_MODELS = [
 function SettingsPage() {
   const queryClient = useQueryClient();
   const [displayName, setDisplayName] = useState("");
+  const [persona, setPersona] = useState("");
   const [model, setModel] = useState(MODELS[0].id);
   const [creativity, setCreativity] = useState(0.9);
   const [style, setStyle] = useState("");
@@ -72,6 +73,7 @@ function SettingsPage() {
   useEffect(() => {
     if (!data) return;
     setDisplayName(data.display_name ?? "");
+    setPersona(data.user_persona ?? "");
     setModel(data.default_model);
     setCreativity(Number(data.creativity));
     setStyle(data.style_instructions ?? "");
@@ -95,6 +97,7 @@ function SettingsPage() {
       .from("profiles")
       .update({
         display_name: displayName || null,
+        user_persona: persona.trim() || null,
         default_model: model,
         creativity,
         style_instructions: style || null,
