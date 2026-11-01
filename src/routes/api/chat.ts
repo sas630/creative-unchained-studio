@@ -40,10 +40,15 @@ type ChatBody = {
   intense?: boolean;
   spicy?: boolean;
   userSaved?: boolean;
+  userPersona?: string | null;
+  alternatives?: string[] | null;
 };
 
 // Auto-regulagem: lembra o último provedor que funcionou (por instância).
 const lastGood = new Map<string, number>();
+// Chaves que tomaram 429 descansam 60s; rodízio circular entre mensagens.
+const cooldown = new Map<string, number>();
+let rr = 0;
 
 import { INTENSE_RULES } from "@/lib/roleplay-prompt";
 import { createClient } from "@supabase/supabase-js";
@@ -66,6 +71,7 @@ function buildSystemPrompt(body: ChatBody) {
   if (c?.persona) lines.push(`Persona:\n${c.persona}`);
   if (c?.scenario) lines.push(`Cenário:\n${c.scenario}`);
   if (body.userName) lines.push(`\nO usuário se chama ${body.userName}.`);
+  if (body.userPersona?.trim()) lines.push(`\n# Persona do usuário (quem ele interpreta — sempre lembre disso)\n${body.userPersona.trim()}`);
   if (body.styleInstructions) lines.push(`\nInstruções de estilo do usuário:\n${body.styleInstructions}`);
   if (body.intense) lines.push(`\n${INTENSE_RULES(c?.name)}`);
   if (body.spicy)
@@ -98,7 +104,13 @@ export const Route = createFileRoute("/api/chat")({
           return new Response("Messages are required", { status: 400 });
         }
 
-        const geminiKeys = parseApiKeyList(body.geminiKeys);
+        const allGemini = [...new Set(parseApiKeyList(body.geminiKeys))];
+        const now0 = Date.now();
+        const offset = allGemini.length ? rr++ % allGemini.length : 0;
+        const rotated = [...allGemini.slice(offset), ...allGemini.slice(0, offset)];
+        const fresh = rotated.filter((k) => (cooldown.get(k) ?? 0) < now0);
+        const geminiKeys = fresh.length ? fresh : rotated;
+        const keyNo = (k: string) => allGemini.indexOf(k) + 1;
         const openaiKeys = parseApiKeyList(body.openaiKeys);
         const kimiKeys = parseApiKeyList(body.kimiKeys);
         if (geminiKeys.length + openaiKeys.length + kimiKeys.length === 0) {
@@ -191,8 +203,8 @@ export const Route = createFileRoute("/api/chat")({
         const [firstGemini, ...otherGemini] = [geminiModelId, ...geminiFallbackModels(geminiModelId)];
         const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai";
         const addGemini = (modelId: string) =>
-          geminiKeys.forEach((key, i) =>
-            add(`gemini#${i + 1}:${modelId}`, `Gemini (chave ${i + 1}/${geminiKeys.length})`, modelId, GEMINI_URL, key, temperature),
+          geminiKeys.forEach((key) =>
+            add(`gemini#${keyNo(key)}:${modelId}`, `Gemini · chave ${keyNo(key)} de ${allGemini.length}`, modelId, GEMINI_URL, key, temperature),
           );
         // OpenRouter removido (modelos grátis retornavam texto corrompido).
         // Ordem: Gemini preferido → Kimi → OpenAI → outros Gemini.
@@ -209,13 +221,7 @@ export const Route = createFileRoute("/api/chat")({
         otherGemini.forEach(addGemini);
         // Modo rápido: modelos leves primeiro. Auto-regulagem: o último que funcionou vai na frente.
         const isLight = (m: string) => /lite|flash|lightning|mini/i.test(m);
-        attempts.sort((a, b) => {
-          const ga = lastGood.get(a.label) ?? 0;
-          const gb = lastGood.get(b.label) ?? 0;
-          if (ga !== gb) return gb - ga;
-          
-          return 0;
-        });
+
         const firstTokenTimeout = 25000;
         // Fallback: se todas as tentativas falharem (402/429/etc), entregamos uma
         // resposta local em vez de quebrar o chat — o usuário pode reenviar depois.
@@ -309,6 +315,10 @@ export const Route = createFileRoute("/api/chat")({
                 const st = (streamError as { statusCode?: number } | null)?.statusCode;
                 // chave inválida/bloqueada: não tenta de novo com outros modelos
                 if (st === 400 || st === 401 || st === 403) badKeys.add(attempt.key);
+                if (st === 429 || /too many|rate limit|quota/i.test(rawReason(streamError))) {
+                  badKeys.add(attempt.key);
+                  cooldown.set(attempt.key, Date.now() + 60_000);
+                }
                 console.error(`[chat] ${attempt.label} falhou`, streamError);
               } else if (chars === 0) {
                 lastError = new Error(
@@ -346,7 +356,7 @@ export const Route = createFileRoute("/api/chat")({
             if (fullText.trim() && db && userId) {
               const { error } = await db
                 .from("chat_messages")
-                .insert({ chat_id: chatId, user_id: userId, role: "assistant", content: fullText } as never);
+                .insert({ chat_id: chatId, user_id: userId, role: "assistant", content: fullText, alternatives: Array.isArray(body.alternatives) && body.alternatives.length ? [...body.alternatives, fullText] : [] } as never);
               if (error) console.error("[chat] save assistant error", error);
               await db.from("chats").update({ updated_at: new Date().toISOString() } as never).eq("id", chatId!);
             }
