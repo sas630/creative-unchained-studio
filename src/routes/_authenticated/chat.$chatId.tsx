@@ -919,19 +919,28 @@ function ChatSurface({
                   </div>
                 )}
 
-                {m.role === "assistant" && (alts[m.id]?.length ?? 0) > 1 && (() => {
-                  const list = alts[m.id];
+                {m.role === "assistant" && !isFallback(m) && editingId !== m.id && (() => {
+                  const list = alts[m.id]?.length ? alts[m.id] : [textOf(m)];
                   const cur = Math.max(0, list.indexOf(textOf(m)));
+                  const busy = isLoading || !!workingId;
                   return (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
                       <Button size="icon" variant="ghost" className="size-7" aria-label="Versão anterior"
-                        disabled={isLoading} onClick={() => void pickAlt(m, cur - 1)}>
+                        disabled={busy || list.length < 2} onClick={() => void pickAlt(m, cur - 1)}>
                         <ChevronLeft className="size-4" />
                       </Button>
                       <span className="tabular-nums">{cur + 1} / {list.length}</span>
                       <Button size="icon" variant="ghost" className="size-7" aria-label="Próxima versão"
-                        disabled={isLoading} onClick={() => void pickAlt(m, cur + 1)}>
+                        disabled={busy || list.length < 2} onClick={() => void pickAlt(m, cur + 1)}>
                         <ChevronRight className="size-4" />
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 px-2" disabled={busy}
+                        onClick={() => void newVersion(m)}>
+                        <RotateCcw className="size-3.5" /> Nova versão
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 px-2" disabled={busy}
+                        onClick={() => void continueMsg(m)}>
+                        <FastForward className="size-3.5" /> {workingId === m.id ? "Escrevendo…" : "Continuar"}
                       </Button>
                     </div>
                   );
