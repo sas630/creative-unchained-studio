@@ -155,6 +155,17 @@ function SettingsPage() {
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="persona">Minha persona (vale para todas as conversas)</Label>
+            <Textarea
+              id="persona"
+              rows={5}
+              value={persona}
+              onChange={(e) => setPersona(e.target.value)}
+              placeholder="Aparência, idade, personalidade, papel nas histórias…"
+            />
+          </div>
+
+          <div className="space-y-2">
             <Label>Modelo padrão</Label>
             <Select value={model} onValueChange={setModel}>
               <SelectTrigger>
