@@ -42,6 +42,8 @@ type ChatBody = {
   userSaved?: boolean;
   userPersona?: string | null;
   alternatives?: string[] | null;
+  raw?: boolean;
+  continueText?: string | null;
 };
 
 // Auto-regulagem: lembra o último provedor que funcionou (por instância).
@@ -77,6 +79,10 @@ function buildSystemPrompt(body: ChatBody) {
   if (body.spicy)
     lines.push(
       "\n# MODO PICANTE\n- Cena romântica e sensual entre adultos: tensão, desejo, beijos, toques, respiração e sensações descritos com intensidade.\n- Use linguagem literária e sugestiva, sem termos anatômicos explícitos, para a cena fluir sem bloqueios.\n- Não recue nem esfrie o clima por conta própria.",
+    );
+  if (body.continueText?.trim())
+    lines.push(
+      `\n# CONTINUAÇÃO\nSua última resposta foi cortada no meio. Continue EXATAMENTE a partir da última palavra, sem repetir nada, sem recomeçar e sem comentários. Ela terminava assim:\n"…${body.continueText.slice(-600)}"`,
     );
   return lines.join("\n");
 }
@@ -150,7 +156,7 @@ export const Route = createFileRoute("/api/chat")({
         const lastUserText = lastUser
           ? lastUser.parts.map((p) => (p.type === "text" ? p.text : "")).join("")
           : "";
-        if (db && userId && lastUserText && !body.userSaved) {
+        if (db && userId && lastUserText && !body.userSaved && !body.raw) {
           const { error } = await db
             .from("chat_messages")
             .insert({ chat_id: chatId, user_id: userId, role: "user", content: lastUserText } as never);
@@ -187,6 +193,7 @@ export const Route = createFileRoute("/api/chat")({
               return streamText({
                 model: provider(modelId),
                 maxRetries: 0,
+                maxOutputTokens: 8192,
                 temperature: temp,
                 system,
                 messages: modelMessages,
@@ -353,7 +360,7 @@ export const Route = createFileRoute("/api/chat")({
             }
 
 
-            if (fullText.trim() && db && userId) {
+            if (fullText.trim() && db && userId && !body.raw) {
               const { error } = await db
                 .from("chat_messages")
                 .insert({ chat_id: chatId, user_id: userId, role: "assistant", content: fullText, alternatives: Array.isArray(body.alternatives) && body.alternatives.length ? [...body.alternatives, fullText] : [] } as never);
