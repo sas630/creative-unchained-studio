@@ -64,6 +64,7 @@ export type Database = {
       }
       chat_messages: {
         Row: {
+          alternatives: Json
           chat_id: string
           content: string
           created_at: string
@@ -72,6 +73,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          alternatives?: Json
           chat_id: string
           content?: string
           created_at?: string
@@ -80,6 +82,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          alternatives?: Json
           chat_id?: string
           content?: string
           created_at?: string
@@ -154,6 +157,7 @@ export type Database = {
           openrouter_model: string | null
           style_instructions: string | null
           updated_at: string
+          user_persona: string | null
           voice_enabled: boolean
           voice_examples: Json
           voice_source_chat: string | null
@@ -179,6 +183,7 @@ export type Database = {
           openrouter_model?: string | null
           style_instructions?: string | null
           updated_at?: string
+          user_persona?: string | null
           voice_enabled?: boolean
           voice_examples?: Json
           voice_source_chat?: string | null
@@ -204,6 +209,7 @@ export type Database = {
           openrouter_model?: string | null
           style_instructions?: string | null
           updated_at?: string
+          user_persona?: string | null
           voice_enabled?: boolean
           voice_examples?: Json
           voice_source_chat?: string | null

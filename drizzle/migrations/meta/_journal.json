@@ -15,6 +15,13 @@
       "when": 1791002777990,
       "tag": "0001_stories_soft_delete",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793524500229,
+      "tag": "0002_swipes_and_persona",
+      "breakpoints": true
     }
   ]
 }
