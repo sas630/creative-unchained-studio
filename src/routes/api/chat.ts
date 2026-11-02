@@ -330,11 +330,14 @@ export const Route = createFileRoute("/api/chat")({
               if (streamError) {
                 lastError = streamError;
                 const st = (streamError as { statusCode?: number } | null)?.statusCode;
-                // chave inválida/bloqueada: não tenta de novo com outros modelos
-                if (st === 400 || st === 401 || st === 403) badKeys.add(attempt.key);
-                if (st === 429 || /too many|rate limit|quota/i.test(rawReason(streamError))) {
-                  badKeys.add(attempt.key);
-                  cooldown.set(attempt.key, Date.now() + 60_000);
+                const msg = rawReason(streamError);
+                // chave inválida: pula só essa chave
+                if (st === 401 || st === 403 || /api key|API_KEY/i.test(msg)) badKeys.add(attempt.key);
+                // modelo inexistente/incompatível: pula o modelo, não a chave
+                else if (st === 400 || st === 404) emptyModels.add(attempt.modelId);
+                // 429: cota é por modelo — descansa só essa chave NESTE modelo
+                if (st === 429 || /too many|rate limit|quota/i.test(msg)) {
+                  cooldown.set(`${attempt.key}|${attempt.modelId}`, Date.now() + 60_000);
                 }
                 console.error(`[chat] ${attempt.label} falhou`, streamError);
               } else if (chars === 0) {

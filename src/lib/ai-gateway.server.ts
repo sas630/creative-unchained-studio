@@ -125,10 +125,17 @@ export function resolveModelId(candidate: unknown): string {
 
 // ---- Google AI Studio (Gemini) com chaves do próprio usuário: cota gratuita ----
 
+// Todos gratuitos no Google AI Studio; cada modelo tem cota por minuto própria.
 export const GEMINI_MODELS = [
+  "gemini-2.5-flash",
+  "gemini-flash-latest",
+  "gemini-2.0-flash",
+  "gemini-2.5-flash-lite",
+  "gemini-flash-lite-latest",
+  "gemini-2.0-flash-lite",
   "gemini-3-flash-preview",
   "gemini-3.1-flash-lite",
-  "gemini-flash-latest",
+  "gemini-2.5-pro",
   "gemini-3.1-pro-preview",
 ] as const;
 
