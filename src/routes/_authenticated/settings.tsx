@@ -46,8 +46,6 @@ const GEMINI_MODELS = [
   { id: "gemini-1.5-flash", label: "Gemini 1.5 Flash — grátis, legado estendido" },
   { id: "gemini-1.5-pro", label: "Gemini 1.5 Pro — grátis, alta precisão" },
   { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro — grátis, prosa rica" },
-  { id: "gemini-flash-latest", label: "Gemini Flash (sempre atual) — grátis" },
-  { id: "gemini-flash-lite-latest", label: "Gemini Flash Lite (atual) — grátis" },
 ];
 
 function SettingsPage() {
