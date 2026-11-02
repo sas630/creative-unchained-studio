@@ -93,11 +93,6 @@ export const generateChatTitle = createServerFn({ method: "POST" })
   });
 
 // ---- Resumo contínuo para conversas longas ("infinitas") ----
-// Em vez de reenviar todo o histórico ao modelo a cada mensagem (o que acaba
-// estourando o limite de contexto em cenas muito longas), guardamos um
-// resumo cumulativo da parte antiga da conversa e só enviamos ao modelo o
-// resumo + as últimas mensagens. Esta função funde um trecho antigo com o
-// resumo já existente.
 const SummarizeChunkInput = z.object({
   existingSummary: z.string().optional(),
   chunk: z
@@ -119,28 +114,38 @@ export const summarizeChatChunk = createServerFn({ method: "POST" })
     if (keys.length === 0) {
       throw new Error("Adicione uma chave grátis do Google Gemini em Ajustes para resumir conversas longas.");
     }
-    const modelId = resolveGeminiModelId(data.geminiModel);
+    const chosen = resolveGeminiModelId(data.geminiModel);
+    const models = [chosen, ...GEMINI_MODELS.filter((m) => m !== chosen)];
+
     const transcript = data.chunk
       .map((m) => `${m.role === "user" ? "Usuário" : "Personagem"}: ${m.content}`)
       .join("\n\n");
 
     let lastError: unknown = null;
-    for (const key of keys) {
-      try {
-        const provider = createGeminiProvider(key);
-        const { text } = await generateText({
-          model: provider(modelId),
-          temperature: 0.3,
-          system:
-            "Você mantém a memória de uma cena de roleplay longa. Funda o resumo anterior (se houver) com o trecho novo em um único resumo coeso e cronológico, em terceira pessoa: eventos importantes, decisões, como o relacionamento entre os personagens evoluiu, e o estado emocional/situação atual de cada um. No máximo 300 palavras. Devolva apenas o resumo, sem título e sem comentários.",
-          prompt: `${
-            data.existingSummary ? `Resumo até agora:\n${data.existingSummary}\n\n` : ""
-          }Trecho novo da cena:\n${transcript}`,
-        });
-        return { summary: text.trim() };
-      } catch (error) {
-        lastError = error;
+    for (const modelId of models) {
+      for (const key of keys) {
+        try {
+          const provider = createGeminiProvider(key);
+          const { text } = await generateText({
+            model: provider(modelId),
+            maxRetries: 1,
+            temperature: 0.3,
+            system:
+              "Você mantém a memória de uma cena de roleplay longa. Funda o resumo anterior (se houver) com o trecho novo em um único resumo coeso e cronológico, em terceira pessoa: eventos importantes, decisões, como o relacionamento entre os personagens evoluiu, e o estado emocional/situação atual de cada um. No máximo 300 palavras. Devolva apenas o resumo, sem título e sem comentários.",
+            prompt: `${
+              data.existingSummary ? `Resumo até agora:\n${data.existingSummary}\n\n` : ""
+            }Trecho novo da cena:\n${transcript}`,
+          });
+          if (text.trim()) return { summary: text.trim() };
+        } catch (error) {
+          lastError = error;
+        }
       }
     }
-    throw lastError instanceof Error ? lastError : new Error("Falha ao resumir a conversa.");
+
+    throw new Error(
+      lastError instanceof Error
+        ? lastError.message
+        : "Não foi possível resumir a conversa com as chaves informadas.",
+    );
   });
