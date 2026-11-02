@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
+import { useAuth } from "@/hooks/useAuth";
 import { ArrowRight, Feather, Infinity as InfinityIcon, MessageSquareHeart, Sparkles, Wand2 } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,12 @@ const features = [
 ];
 
 function Landing() {
+  const { user, loading } = useAuth();
+  if (!loading) return <Navigate to={user ? "/chat" : "/auth"} replace />;
+  return null;
+}
+
+function OldLanding() {
   return (
     <div className="min-h-screen">
       <SiteHeader />

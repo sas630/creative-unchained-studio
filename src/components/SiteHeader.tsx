@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Feather, MessageSquareHeart, Sparkles, Users } from "lucide-react";
+import { Feather, MessageSquareHeart, Search, Sparkles, Users } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -73,6 +73,10 @@ export function SiteHeader() {
 
         <div className="flex items-center gap-2">
           {loading ? null : user ? (
+            <>
+            <Button asChild variant="ghost" size="icon" aria-label="Buscar">
+              <Link to="/search"><Search className="size-4" /></Link>
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="secondary" size="sm" className="max-w-44 truncate">
@@ -93,16 +97,13 @@ export function SiteHeader() {
                 <DropdownMenuItem onSelect={() => void signOut()}>Sair</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            </>
           ) : (
             <>
               <Button asChild variant="ghost" size="sm">
                 <Link to="/auth">Entrar</Link>
               </Button>
-              <Button asChild size="sm">
-                <Link to="/auth" search={{ mode: "signup" }}>
-                  Criar conta
-                </Link>
-              </Button>
+              
             </>
           )}
         </div>
