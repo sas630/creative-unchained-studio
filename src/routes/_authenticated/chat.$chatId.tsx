@@ -4,7 +4,7 @@ import { DefaultChatTransport, type UIMessage } from "ai";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, Flame, GitBranch, Pencil, RotateCcw, Send, Square, Trash2, Volume2, VolumeX, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, FastForward, Flame, GitBranch, Pencil, RotateCcw, Send, Square, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
 import { buildRoleplaySystemPrompt, INTENSE_RULES } from "@/lib/roleplay-prompt";
@@ -994,7 +994,7 @@ function ChatSurface({
                 )}
               </div>
             // eslint-disable-next-line react-hooks/exhaustive-deps
-            )), [messages, editingId, editText, isLoading, speakingId, alts])}
+            )), [messages, editingId, editText, isLoading, speakingId, alts, workingId])}
 
             {(status === "submitted" || attempts.length > 0) && (
               <div className="flex justify-start">
