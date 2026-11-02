@@ -125,7 +125,6 @@ export function resolveModelId(candidate: unknown): string {
 
 // ---- Google AI Studio (Gemini) com chaves do próprio usuário: cota gratuita ----
 
-// Lista completa contendo todos os modelos gratuitos em atividade no Google AI Studio
 export const GEMINI_MODELS = [
   "gemini-2.5-flash",
   "gemini-2.5-flash-lite",
@@ -134,20 +133,24 @@ export const GEMINI_MODELS = [
   "gemini-1.5-flash",
   "gemini-1.5-pro",
   "gemini-2.5-pro",
-  "gemini-flash-latest",
-  "gemini-flash-lite-latest",
 ] as const;
 
-/** Redireciona IDs obsoletos ou de teste para os modelos correspondentes em execução. */
+/** Redireciona IDs obsoletos, de teste ou "-latest" para os modelos estáveis correspondentes. */
 const GEMINI_MODEL_ALIASES: Record<string, string> = {
   "gemini-3-flash-preview": "gemini-2.5-flash",
   "gemini-3.1-flash-lite": "gemini-2.5-flash-lite",
   "gemini-3.1-pro-preview": "gemini-2.5-pro",
+  "gemini-flash-latest": "gemini-2.5-flash",
+  "gemini-flash-lite-latest": "gemini-2.5-flash-lite",
 };
 
 export function resolveGeminiModelId(candidate: unknown): string {
   const value = typeof candidate === "string" ? candidate.trim() : "";
   if (!value) return GEMINI_MODELS[0];
+  if (value.includes("latest")) {
+    if (value.includes("lite")) return "gemini-2.5-flash-lite";
+    return "gemini-2.5-flash";
+  }
   return GEMINI_MODEL_ALIASES[value] ?? value;
 }
 
@@ -160,7 +163,6 @@ export function geminiFallbackModels(chosen: string): string[] {
 export function parseApiKeyList(candidate: unknown): string[] {
   if (typeof candidate !== "string") return [];
   const seen = new Set<string>();
-  // Também separa chaves coladas juntas (prefixos "AQ." e "AIza").
   for (const raw of candidate.split(/[\s,;]+|(?=AQ\.)|(?=AIza)|(?=sk-or-v1-)|(?=sk-(?!or-v1))/)) {
     const key = raw.trim();
     if (key.length > 10) seen.add(key);
@@ -171,9 +173,10 @@ export function parseApiKeyList(candidate: unknown): string[] {
 export function createGeminiProvider(apiKey: string) {
   return createOpenAICompatible({
     name: "gemini",
-    baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
+    baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
     headers: {
       Authorization: `Bearer ${apiKey}`,
+      "x-goog-api-key": apiKey,
     },
   });
 }
