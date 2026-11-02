@@ -265,7 +265,7 @@ function SettingsPage() {
             </div>
             <p className="text-xs text-muted-foreground">
               {geminiKeys.trim()
-                ? `${geminiKeys.trim().split(/[\s,;]+/).filter((k) => k.length > 10).length} chave(s) ativa(s) — suas cenas rodam de graça, com troca automática.`
+                ? `${splitKeys(geminiKeys).split("\n").filter(Boolean).length} chave(s) ativa(s) — suas cenas rodam de graça, com troca automática.`
                 : "Sem chaves aqui o chat não funciona: cole pelo menos uma chave grátis do Gemini."}
             </p>
           </div>
