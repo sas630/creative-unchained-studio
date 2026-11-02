@@ -255,6 +255,7 @@ export const Route = createFileRoute("/api/chat")({
               },
             };
             const badKeys = new Set<string>();
+            const emptyModels = new Set<string>();
             let fullText = "";
             const textId = crypto.randomUUID();
             let started = false;
@@ -270,7 +271,7 @@ export const Route = createFileRoute("/api/chat")({
 
             let lastError: unknown = null;
             for (const [index, attempt] of attempts.entries()) {
-              if (badKeys.has(attempt.key)) continue;
+              if (badKeys.has(attempt.key) || emptyModels.has(attempt.modelId)) continue;
               lastError = null;
               const t0 = Date.now();
               writer.write({
@@ -341,6 +342,8 @@ export const Route = createFileRoute("/api/chat")({
                   `O provedor (${attempt.label}) respondeu vazio. Tente outro modelo.`,
                 );
                 console.error(`[chat] ${attempt.label} respondeu vazio`);
+                // vazio = filtro do modelo; outras chaves do mesmo modelo dariam o mesmo
+                emptyModels.add(attempt.modelId);
               }
               writer.write({
                 type: "data-attempt",
