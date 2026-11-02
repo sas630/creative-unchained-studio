@@ -173,10 +173,24 @@ export function parseApiKeyList(candidate: unknown): string[] {
 export function createGeminiProvider(apiKey: string) {
   return createOpenAICompatible({
     name: "gemini",
-    baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+    baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
     headers: {
       Authorization: `Bearer ${apiKey}`,
-      "x-goog-api-key": apiKey,
+    },
+    fetch: async (input, init) => {
+      // Sanitiza o corpo do pedido para remover parâmetros não suportados pelo endpoint do Google
+      if (init && init.body && typeof init.body === "string") {
+        try {
+          const bodyObj = JSON.parse(init.body);
+          delete bodyObj.stream_options;
+          delete bodyObj.parallel_tool_calls;
+          delete bodyObj.user;
+          init.body = JSON.stringify(bodyObj);
+        } catch (e) {
+          // Ignora erros de parse
+        }
+      }
+      return fetch(input, init);
     },
   });
 }
