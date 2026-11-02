@@ -39,10 +39,16 @@ const MODELS = [
 ];
 
 const GEMINI_MODELS = [
-  { id: "gemini-3-flash-preview", label: "Gemini 3 Flash — grátis, equilibrado" },
-  { id: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite — grátis, o mais rápido" },
+  { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash — grátis, equilibrado" },
   { id: "gemini-flash-latest", label: "Gemini Flash (sempre atual) — grátis" },
-  { id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro — grátis, prosa mais rica" },
+  { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash — grátis, muito estável" },
+  { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite — grátis, rapidíssimo" },
+  { id: "gemini-flash-lite-latest", label: "Gemini Flash Lite (atual) — grátis" },
+  { id: "gemini-2.0-flash-lite", label: "Gemini 2.0 Flash Lite — grátis, leve" },
+  { id: "gemini-3-flash-preview", label: "Gemini 3 Flash (teste) — grátis" },
+  { id: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite (teste) — grátis" },
+  { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro — grátis, prosa rica" },
+  { id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro (teste) — grátis" },
 ];
 
 function SettingsPage() {
@@ -259,7 +265,7 @@ function SettingsPage() {
             </div>
             <p className="text-xs text-muted-foreground">
               {geminiKeys.trim()
-                ? `${geminiKeys.trim().split(/[\s,;]+/).filter((k) => k.length > 10).length} chave(s) ativa(s) — suas cenas rodam de graça, com troca automática.`
+                ? `${splitKeys(geminiKeys).split("\n").filter(Boolean).length} chave(s) ativa(s) — suas cenas rodam de graça, com troca automática.`
                 : "Sem chaves aqui o chat não funciona: cole pelo menos uma chave grátis do Gemini."}
             </p>
           </div>

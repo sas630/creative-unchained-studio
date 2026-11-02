@@ -114,8 +114,8 @@ export const Route = createFileRoute("/api/chat")({
         const now0 = Date.now();
         const offset = allGemini.length ? rr++ % allGemini.length : 0;
         const rotated = [...allGemini.slice(offset), ...allGemini.slice(0, offset)];
-        const fresh = rotated.filter((k) => (cooldown.get(k) ?? 0) < now0);
-        const geminiKeys = fresh.length ? fresh : rotated;
+        void now0;
+        const geminiKeys = rotated;
         const keyNo = (k: string) => allGemini.indexOf(k) + 1;
         const openaiKeys = parseApiKeyList(body.openaiKeys);
         const kimiKeys = parseApiKeyList(body.kimiKeys);
@@ -272,6 +272,7 @@ export const Route = createFileRoute("/api/chat")({
             let lastError: unknown = null;
             for (const [index, attempt] of attempts.entries()) {
               if (badKeys.has(attempt.key) || emptyModels.has(attempt.modelId)) continue;
+              if ((cooldown.get(`${attempt.key}|${attempt.modelId}`) ?? 0) > Date.now()) continue;
               lastError = null;
               const t0 = Date.now();
               writer.write({
@@ -330,11 +331,14 @@ export const Route = createFileRoute("/api/chat")({
               if (streamError) {
                 lastError = streamError;
                 const st = (streamError as { statusCode?: number } | null)?.statusCode;
-                // chave inválida/bloqueada: não tenta de novo com outros modelos
-                if (st === 400 || st === 401 || st === 403) badKeys.add(attempt.key);
-                if (st === 429 || /too many|rate limit|quota/i.test(rawReason(streamError))) {
-                  badKeys.add(attempt.key);
-                  cooldown.set(attempt.key, Date.now() + 60_000);
+                const msg = rawReason(streamError);
+                // chave inválida: pula só essa chave
+                if (st === 401 || st === 403 || /api key|API_KEY/i.test(msg)) badKeys.add(attempt.key);
+                // modelo inexistente/incompatível: pula o modelo, não a chave
+                else if (st === 400 || st === 404) emptyModels.add(attempt.modelId);
+                // 429: cota é por modelo — descansa só essa chave NESTE modelo
+                if (st === 429 || /too many|rate limit|quota/i.test(msg)) {
+                  cooldown.set(`${attempt.key}|${attempt.modelId}`, Date.now() + 60_000);
                 }
                 console.error(`[chat] ${attempt.label} falhou`, streamError);
               } else if (chars === 0) {
