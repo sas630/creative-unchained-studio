@@ -114,8 +114,8 @@ export const Route = createFileRoute("/api/chat")({
         const now0 = Date.now();
         const offset = allGemini.length ? rr++ % allGemini.length : 0;
         const rotated = [...allGemini.slice(offset), ...allGemini.slice(0, offset)];
-        const fresh = rotated.filter((k) => (cooldown.get(k) ?? 0) < now0);
-        const geminiKeys = fresh.length ? fresh : rotated;
+        void now0;
+        const geminiKeys = rotated;
         const keyNo = (k: string) => allGemini.indexOf(k) + 1;
         const openaiKeys = parseApiKeyList(body.openaiKeys);
         const kimiKeys = parseApiKeyList(body.kimiKeys);
@@ -272,6 +272,7 @@ export const Route = createFileRoute("/api/chat")({
             let lastError: unknown = null;
             for (const [index, attempt] of attempts.entries()) {
               if (badKeys.has(attempt.key) || emptyModels.has(attempt.modelId)) continue;
+              if ((cooldown.get(`${attempt.key}|${attempt.modelId}`) ?? 0) > Date.now()) continue;
               lastError = null;
               const t0 = Date.now();
               writer.write({
