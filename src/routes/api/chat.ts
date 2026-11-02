@@ -222,8 +222,17 @@ export const Route = createFileRoute("/api/chat")({
         );
         const openaiModel = (body.openaiModel || "gpt-4o-mini").trim();
         const openaiTemp = /^(gpt-5|o\d)/.test(openaiModel) ? undefined : temperature;
-        openaiKeys.forEach((key, i) =>
-          add(`openai#${i + 1}:${openaiModel}`, `OpenAI (chave ${i + 1}/${openaiKeys.length})`, openaiModel, "https://api.openai.com/v1", key, openaiTemp),
+        // Chaves "sk-or-v1-" são do OpenRouter: vão para o OpenRouter, não para a OpenAI.
+        const orKeys = openaiKeys.filter((k) => k.startsWith("sk-or-"));
+        const realOpenai = openaiKeys.filter((k) => !k.startsWith("sk-or-"));
+        realOpenai.forEach((key, i) =>
+          add(`openai#${i + 1}:${openaiModel}`, `OpenAI (chave ${i + 1}/${realOpenai.length})`, openaiModel, "https://api.openai.com/v1", key, openaiTemp),
+        );
+        const orModels = ["meta-llama/llama-3.3-70b-instruct:free", "deepseek/deepseek-chat-v3-0324:free"];
+        orModels.forEach((m) =>
+          orKeys.forEach((key, i) =>
+            add(`openrouter#${i + 1}:${m}`, `OpenRouter (chave ${i + 1}/${orKeys.length})`, m, "https://openrouter.ai/api/v1", key, Math.min(temperature, 1)),
+          ),
         );
         otherGemini.forEach(addGemini);
         // Modo rápido: modelos leves primeiro. Auto-regulagem: o último que funcionou vai na frente.
