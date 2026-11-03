@@ -335,7 +335,8 @@ export const Route = createFileRoute("/api/chat")({
                 // chave inválida: pula só essa chave
                 if (st === 401 || st === 403 || /api key|API_KEY/i.test(msg)) badKeys.add(attempt.key);
                 // modelo inexistente/incompatível: pula o modelo, não a chave
-                else if (st === 400 || st === 404) emptyModels.add(attempt.modelId);
+                // 503 = modelo lotado: pula pro próximo modelo em vez de gastar todas as chaves
+                else if (st === 400 || st === 404 || st === 503) emptyModels.add(attempt.modelId);
                 // 429: cota é por modelo — descansa só essa chave NESTE modelo
                 if (st === 429 || /too many|rate limit|quota/i.test(msg)) {
                   cooldown.set(`${attempt.key}|${attempt.modelId}`, Date.now() + 60_000);

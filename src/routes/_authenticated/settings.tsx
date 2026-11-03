@@ -39,13 +39,13 @@ const MODELS = [
 ];
 
 const GEMINI_MODELS = [
-  { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash — grátis, equilibrado" },
-  { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite — grátis, rapidíssimo" },
-  { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash — grátis, muito estável" },
-  { id: "gemini-2.0-flash-lite", label: "Gemini 2.0 Flash Lite — grátis, leve" },
-  { id: "gemini-1.5-flash", label: "Gemini 1.5 Flash — grátis, legado estendido" },
-  { id: "gemini-1.5-pro", label: "Gemini 1.5 Pro — grátis, alta precisão" },
-  { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro — grátis, prosa rica" },
+  { id: "gemini-flash-lite-latest", label: "Gemini Flash Lite — grátis, o mais estável" },
+  { id: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash Lite — grátis, rapidíssimo" },
+  { id: "gemini-3-flash-preview", label: "Gemini 3 Flash — grátis, equilibrado" },
+  { id: "gemini-3.6-flash", label: "Gemini 3.6 Flash — grátis, prosa rica" },
+  { id: "gemini-3.5-flash", label: "Gemini 3.5 Flash — grátis" },
+  { id: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite — grátis" },
+  { id: "gemini-flash-latest", label: "Gemini Flash — grátis (às vezes lotado)" },
 ];
 
 function SettingsPage() {

@@ -125,33 +125,23 @@ export function resolveModelId(candidate: unknown): string {
 
 // ---- Google AI Studio (Gemini) com chaves do próprio usuário: cota gratuita ----
 
+// Testados em nov/2026: respondem 200 com chaves grátis. Os 1.5/2.0/2.5 dão 404.
 export const GEMINI_MODELS = [
-  "gemini-2.5-flash",
-  "gemini-2.5-flash-lite",
-  "gemini-2.0-flash",
-  "gemini-2.0-flash-lite",
-  "gemini-1.5-flash",
-  "gemini-1.5-pro",
-  "gemini-2.5-pro",
+  "gemini-flash-lite-latest",
+  "gemini-3.5-flash-lite",
+  "gemini-3-flash-preview",
+  "gemini-3.6-flash",
+  "gemini-3.5-flash",
+  "gemini-3.1-flash-lite",
+  "gemini-flash-latest",
 ] as const;
 
-/** Redireciona IDs obsoletos, de teste ou "-latest" para os modelos estáveis correspondentes. */
-const GEMINI_MODEL_ALIASES: Record<string, string> = {
-  "gemini-3-flash-preview": "gemini-2.5-flash",
-  "gemini-3.1-flash-lite": "gemini-2.5-flash-lite",
-  "gemini-3.1-pro-preview": "gemini-2.5-pro",
-  "gemini-flash-latest": "gemini-2.5-flash",
-  "gemini-flash-lite-latest": "gemini-2.5-flash-lite",
-};
+const RETIRED = /^gemini-(1\.5|2\.0|2\.5)/;
 
 export function resolveGeminiModelId(candidate: unknown): string {
   const value = typeof candidate === "string" ? candidate.trim() : "";
-  if (!value) return GEMINI_MODELS[0];
-  if (value.includes("latest")) {
-    if (value.includes("lite")) return "gemini-2.5-flash-lite";
-    return "gemini-2.5-flash";
-  }
-  return GEMINI_MODEL_ALIASES[value] ?? value;
+  if (!value || RETIRED.test(value)) return GEMINI_MODELS[0];
+  return value;
 }
 
 /** Modelos alternativos tentados quando o escolhido falha (404/429). */
