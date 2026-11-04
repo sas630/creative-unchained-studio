@@ -420,7 +420,7 @@ export const Route = createFileRoute("/api/chat")({
               });
               if (!lastError) break;
               // se já streamou texto parcial, não tenta outro provedor
-              if (chars > 0) break;
+              if (chars > 0 || stopAll) break;
             }
 
 
