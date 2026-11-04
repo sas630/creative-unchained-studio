@@ -308,10 +308,12 @@ export const Route = createFileRoute("/api/chat")({
               let firstByteMs: number | null = null;
               const ac = new AbortController();
               const timer = setTimeout(() => ac.abort(), firstTokenTimeout);
+              let finish: string | null = null;
               try {
-                for await (const delta of attempt.run((e) => {
+                const result = attempt.run((e) => {
                   streamError = e;
-                }, ac.signal).textStream) {
+                }, ac.signal);
+                for await (const delta of result.textStream) {
                   if (!delta) continue;
                   if (firstByteMs === null) {
                     clearTimeout(timer);
@@ -335,6 +337,9 @@ export const Route = createFileRoute("/api/chat")({
                   fullText += delta;
                   writer.write({ type: "text-delta", id: textId, delta });
                 }
+                if (chars === 0 && !streamError) {
+                  finish = await Promise.resolve(result.finishReason).catch(() => null);
+                }
               } catch (error) {
                 streamError = error;
               }
@@ -343,27 +348,53 @@ export const Route = createFileRoute("/api/chat")({
                 streamError = new Error(`Lento demais (sem resposta em ${firstTokenTimeout / 1000}s) — pulando automaticamente.`);
               }
               if (!streamError && chars > 0) lastGood.set(attempt.label, Date.now());
+              let stopAll = false;
               if (streamError) {
                 lastError = streamError;
                 const st = (streamError as { statusCode?: number } | null)?.statusCode;
                 const body = String((streamError as { responseBody?: string } | null)?.responseBody ?? "");
                 const msg = `${rawReason(streamError)} ${body}`;
-                // O Google responde 400 para chave inválida: pula SÓ essa chave, nunca o modelo.
-                if (st === 400 || st === 401 || st === 403 || /api key|API_KEY/i.test(msg)) badKeys.add(attempt.key);
-                // 404 = modelo não existe; 503 = modelo lotado → tenta o próximo modelo
-                else if (st === 404 || st === 503) emptyModels.add(attempt.modelId);
+                const keyProblem =
+                  st === 401 ||
+                  st === 403 ||
+                  /invalid auth key|api[_ ]?key|API_KEY_INVALID|PERMISSION_DENIED|unauthenticated/i.test(msg);
+                if (keyProblem) {
+                  // chave morta: pula SÓ essa chave
+                  badKeys.add(attempt.key);
+                } else if (st === 404) {
+                  // modelo não existe mais
+                  emptyModels.add(attempt.modelId);
+                } else if (st === 503) {
+                  // modelo lotado: tenta mais 1 chave nele, depois passa ao próximo modelo
+                  const n = (busy.get(attempt.modelId) ?? 0) + 1;
+                  busy.set(attempt.modelId, n);
+                  if (n >= 2) emptyModels.add(attempt.modelId);
+                } else if (st === 400) {
+                  // 400 que não é de chave = problema no pedido; repetir em 13 chaves não adianta
+                  lastError = new Error(
+                    `O Google recusou o pedido (400): ${body.match(/"message":\s*"([^"]+)"/)?.[1] ?? rawReason(streamError)}`,
+                  );
+                  stopAll = true;
+                }
                 // 429: cota é por modelo — descansa só essa chave NESTE modelo
-                if (st === 429 || /too many|rate limit|quota/i.test(msg)) {
+                if (st === 429 || /too many|rate limit|quota|RESOURCE_EXHAUSTED/i.test(msg)) {
                   cooldown.set(`${attempt.key}|${attempt.modelId}`, Date.now() + 60_000);
                 }
-                console.error(`[chat] ${attempt.label} falhou`, streamError);
+                console.error(`[chat] ${attempt.label} falhou`, st, body.slice(0, 300) || rawReason(streamError));
               } else if (chars === 0) {
-                lastError = new Error(
-                  `O provedor (${attempt.label}) respondeu vazio. Tente outro modelo.`,
-                );
-                console.error(`[chat] ${attempt.label} respondeu vazio`);
-                // vazio = filtro do modelo; outras chaves do mesmo modelo dariam o mesmo
-                emptyModels.add(attempt.modelId);
+                if (finish === "content-filter") {
+                  // o filtro do Google bloqueia a mesma fala em qualquer chave/modelo
+                  lastError = new Error(
+                    "O filtro de conteúdo do Google bloqueou essa fala. Edite sua última mensagem com outras palavras e reenvie.",
+                  );
+                  stopAll = true;
+                } else {
+                  lastError = new Error(
+                    `O provedor (${attempt.label}) respondeu vazio. Tente outro modelo.`,
+                  );
+                  emptyModels.add(attempt.modelId);
+                }
+                console.error(`[chat] ${attempt.label} respondeu vazio`, finish);
               }
               writer.write({
                 type: "data-attempt",
