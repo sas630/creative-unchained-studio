@@ -271,6 +271,7 @@ export const Route = createFileRoute("/api/chat")({
             };
             const badKeys = new Set<string>();
             const emptyModels = new Set<string>();
+            const busy = new Map<string, number>();
             let fullText = "";
             const textId = crypto.randomUUID();
             let started = false;
