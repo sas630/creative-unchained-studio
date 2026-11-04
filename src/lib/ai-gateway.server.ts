@@ -144,9 +144,10 @@ export function resolveGeminiModelId(candidate: unknown): string {
   return value;
 }
 
-/** Modelos alternativos tentados quando o escolhido falha (404/429). */
+/** Reservas curtas e estáveis (testadas nov/2026) tentadas quando o escolhido falha. */
+const STABLE_FALLBACKS = ["gemini-flash-lite-latest", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"];
 export function geminiFallbackModels(chosen: string): string[] {
-  return GEMINI_MODELS.filter((m) => m !== chosen);
+  return STABLE_FALLBACKS.filter((m) => m !== chosen);
 }
 
 /** Aceita várias chaves separadas por linha, vírgula, ponto-e-vírgula ou espaço. */
