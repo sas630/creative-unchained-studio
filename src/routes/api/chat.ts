@@ -189,6 +189,21 @@ export const Route = createFileRoute("/api/chat")({
                 name: label.split("#")[0],
                 baseURL,
                 headers: { Authorization: `Bearer ${key}` },
+                // O endpoint do Google rejeita (400) alguns campos extras do SDK.
+                fetch: async (input, init) => {
+                  if (baseURL.includes("googleapis") && init && typeof init.body === "string") {
+                    try {
+                      const b = JSON.parse(init.body);
+                      delete b.stream_options;
+                      delete b.parallel_tool_calls;
+                      delete b.user;
+                      init = { ...init, body: JSON.stringify(b) };
+                    } catch {
+                      /* corpo não-JSON: envia como está */
+                    }
+                  }
+                  return fetch(input, init);
+                },
               });
               return streamText({
                 model: provider(modelId),
