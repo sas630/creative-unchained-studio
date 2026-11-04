@@ -149,3 +149,28 @@ export const summarizeChatChunk = createServerFn({ method: "POST" })
         : "Não foi possível resumir a conversa com as chaves informadas.",
     );
   });
+
+// ---- Teste rápido das chaves Gemini (Ajustes) ----
+const TestKeysInput = z.object({ geminiKeys: z.string() });
+
+export const testGeminiKeys = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => TestKeysInput.parse(input))
+  .handler(async ({ data }) => {
+    const keys = parseApiKeyList(data.geminiKeys).slice(0, 30);
+    const results = await Promise.all(
+      keys.map(async (key, i) => {
+        try {
+          const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models?pageSize=1`,
+            { headers: { "x-goog-api-key": key }, signal: AbortSignal.timeout(10000) },
+          );
+          if (res.ok) return { n: i + 1, ok: true, info: "ok" };
+          const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+          return { n: i + 1, ok: false, info: `inválida (${res.status}${body?.error?.message ? `: ${body.error.message}` : ""})` };
+        } catch {
+          return { n: i + 1, ok: false, info: "sem resposta (tente de novo)" };
+        }
+      }),
+    );
+    return { results };
+  });

@@ -263,6 +263,7 @@ function SettingsPage() {
                 ? `${splitKeys(geminiKeys).split("\n").filter(Boolean).length} chave(s) ativa(s) — suas cenas rodam de graça, com troca automática.`
                 : "Sem chaves aqui o chat não funciona: cole pelo menos uma chave grátis do Gemini."}
             </p>
+            <KeyTester keys={geminiKeys} />
           </div>
 
           <ExtraKeys />
@@ -402,6 +403,39 @@ function ExtraKeys() {
           />
         </div>
       ))}
+    </div>
+  );
+}
+
+function KeyTester({ keys }: { keys: string }) {
+  const [running, setRunning] = useState(false);
+  const [results, setResults] = useState<{ n: number; ok: boolean; info: string }[] | null>(null);
+  const run = async () => {
+    setRunning(true);
+    try {
+      const { testGeminiKeys } = await import("@/lib/ai.functions");
+      const out = await testGeminiKeys({ data: { geminiKeys: keys } });
+      setResults(out.results);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível testar agora.");
+    } finally {
+      setRunning(false);
+    }
+  };
+  return (
+    <div className="space-y-2">
+      <Button type="button" variant="outline" size="sm" disabled={running || !keys.trim()} onClick={run}>
+        {running ? "Testando…" : "Testar chaves"}
+      </Button>
+      {results && (
+        <ul className="space-y-1 text-xs">
+          {results.map((r) => (
+            <li key={r.n} className={r.ok ? "text-muted-foreground" : "text-destructive"}>
+              Chave {r.n}: {r.ok ? "funcionando" : r.info}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
