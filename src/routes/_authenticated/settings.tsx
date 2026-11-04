@@ -263,6 +263,7 @@ function SettingsPage() {
                 ? `${splitKeys(geminiKeys).split("\n").filter(Boolean).length} chave(s) ativa(s) — suas cenas rodam de graça, com troca automática.`
                 : "Sem chaves aqui o chat não funciona: cole pelo menos uma chave grátis do Gemini."}
             </p>
+            <KeyTester keys={geminiKeys} />
           </div>
 
           <ExtraKeys />
