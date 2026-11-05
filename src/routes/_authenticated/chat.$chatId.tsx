@@ -1083,3 +1083,30 @@ function textOf(message: UIMessage) {
     .join("")
     .trim();
 }
+
+function EditMessageForm({
+  initial,
+  isUser,
+  onCancel,
+  onSave,
+}: {
+  initial: string;
+  isUser: boolean;
+  onCancel: () => void;
+  onSave: (text: string) => void;
+}) {
+  const [text, setText] = useState(initial);
+  return (
+    <div className="w-full max-w-[92%] space-y-2">
+      <Textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} className="resize-none" autoFocus />
+      <div className="flex justify-end gap-2">
+        <Button size="sm" variant="ghost" onClick={onCancel}>
+          <X className="size-4" /> Cancelar
+        </Button>
+        <Button size="sm" onClick={() => onSave(text)}>
+          <Check className="size-4" /> {isUser ? "Salvar e reenviar" : "Salvar"}
+        </Button>
+      </div>
+    </div>
+  );
+}
