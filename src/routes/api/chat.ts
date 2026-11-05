@@ -424,7 +424,7 @@ export const Route = createFileRoute("/api/chat")({
                   writer.write({ type: "text-delta", id: textId, delta });
                 }
                 if (chars === 0 && !streamError) {
-                  finish = await Promise.resolve(result.finishReason).catch(() => null);
+                  finish = ((await Promise.resolve(result.finishReason).catch(() => null)) as string | null) ?? null;
                 }
               } catch (error) {
                 streamError = error;
