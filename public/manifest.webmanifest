@@ -1,0 +1,13 @@
+{
+  "name": "Lumen",
+  "short_name": "Lumen",
+  "id": "/chat",
+  "start_url": "/chat",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#121019",
+  "theme_color": "#121019",
+  "icons": [
+    { "src": "/favicon.ico", "sizes": "48x48", "type": "image/x-icon" }
+  ]
+}

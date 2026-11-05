@@ -821,8 +821,8 @@ function ChatSurface({
   }
 
   return (
-    <div className="flex h-screen flex-col">
-      <header className="flex items-center gap-3 border-b border-border/60 bg-background/85 px-4 py-3 backdrop-blur-xl">
+    <div className="flex h-dvh flex-col overflow-hidden">
+      <header className="sticky top-0 z-20 flex shrink-0 items-center gap-2 border-b border-border/60 bg-background/95 px-2 py-2 backdrop-blur-xl sm:gap-3 sm:px-4 sm:py-3">
         <Button asChild size="icon" variant="ghost" aria-label="Voltar">
           <Link to="/chat">
             <ArrowLeft className="size-4" />
