@@ -749,8 +749,8 @@ function ChatSurface({
     });
   }
 
-  async function saveEdit(target: UIMessage) {
-    const text = editText.trim();
+  async function saveEdit(target: UIMessage, draft?: string) {
+    const text = (draft ?? editText).trim();
     if (!text || isLoading) return;
     if (target.role === "assistant") {
       const oldText = textOf(target);
@@ -888,23 +888,12 @@ function ChatSurface({
                 className={`group flex flex-col gap-1 ${m.role === "user" ? "items-end" : "items-start"}`}
               >
                 {editingId === m.id ? (
-                  <div className="w-full max-w-[92%] space-y-2">
-                    <Textarea
-                      value={editText}
-                      onChange={(e) => setEditText(e.target.value)}
-                      rows={3}
-                      className="resize-none"
-                      autoFocus
-                    />
-                    <div className="flex justify-end gap-2">
-                      <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
-                        <X className="size-4" /> Cancelar
-                      </Button>
-                      <Button size="sm" onClick={() => void saveEdit(m)}>
-                        <Check className="size-4" /> {m.role === "user" ? "Salvar e reenviar" : "Salvar"}
-                      </Button>
-                    </div>
-                  </div>
+                  <EditMessageForm
+                    initial={editText}
+                    isUser={m.role === "user"}
+                    onCancel={() => setEditingId(null)}
+                    onSave={(t) => void saveEdit(m, t)}
+                  />
                 ) : (
                   <div
                     className={
@@ -994,7 +983,7 @@ function ChatSurface({
                 )}
               </div>
             // eslint-disable-next-line react-hooks/exhaustive-deps
-            )), [messages, editingId, editText, isLoading, speakingId, alts, workingId])}
+            )), [messages, editingId, isLoading, speakingId, alts, workingId])}
 
             {(status === "submitted" || attempts.length > 0) && (
               <div className="flex justify-start">
