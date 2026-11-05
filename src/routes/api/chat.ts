@@ -163,12 +163,90 @@ export const Route = createFileRoute("/api/chat")({
           if (error) console.error("[chat] save user error", error);
         }
 
+        type RunResult = { textStream: AsyncIterable<string>; finishReason: PromiseLike<unknown> };
         type Attempt = {
           label: string;
           provider: string;
           modelId: string;
           key: string;
-          run: (onError: (error: unknown) => void, signal?: AbortSignal) => ReturnType<typeof streamText>;
+          run: (onError: (error: unknown) => void, signal?: AbortSignal) => RunResult;
+        };
+
+        // Histórico no formato nativo do Gemini (user/model alternados).
+        const nativeContents: { role: "user" | "model"; parts: { text: string }[] }[] = [];
+        for (const m of allMessages.slice(-30)) {
+          const text = m.parts.map((p) => (p.type === "text" ? p.text : "")).join("").trim();
+          if (!text) continue;
+          const role = m.role === "assistant" ? "model" : "user";
+          const last = nativeContents[nativeContents.length - 1];
+          if (last && last.role === role) last.parts[0].text += `\n\n${text}`;
+          else nativeContents.push({ role, parts: [{ text }] });
+        }
+        if (body.continueText?.trim()) nativeContents.push({ role: "user", parts: [{ text: "(continue exatamente de onde parou)" }] });
+        const SAFETY = [
+          "HARM_CATEGORY_HARASSMENT",
+          "HARM_CATEGORY_HATE_SPEECH",
+          "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+          "HARM_CATEGORY_DANGEROUS_CONTENT",
+          "HARM_CATEGORY_CIVIC_INTEGRITY",
+        ].map((category) => ({ category, threshold: "BLOCK_NONE" }));
+
+        /** Streaming direto na API nativa do Gemini, com filtros de segurança desligados. */
+        const runNativeGemini = (modelId: string, key: string, signal?: AbortSignal): RunResult => {
+          let resolveFinish: (v: string | null) => void = () => {};
+          const finishReason = new Promise<string | null>((r) => (resolveFinish = r));
+          async function* gen() {
+            let finish: string | null = null;
+            try {
+              const res = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelId)}:streamGenerateContent?alt=sse`,
+                {
+                  method: "POST",
+                  signal,
+                  headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+                  body: JSON.stringify({
+                    systemInstruction: { parts: [{ text: system }] },
+                    contents: nativeContents,
+                    safetySettings: SAFETY,
+                    generationConfig: { temperature, maxOutputTokens: 8192 },
+                  }),
+                },
+              );
+              if (!res.ok || !res.body) {
+                const text = await res.text().catch(() => "");
+                throw Object.assign(new Error(text.match(/"message":\s*"([^"]+)"/)?.[1] ?? `HTTP ${res.status}`), {
+                  statusCode: res.status,
+                  responseBody: text,
+                });
+              }
+              const reader = res.body.getReader();
+              const dec = new TextDecoder();
+              let buf = "";
+              for (;;) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buf += dec.decode(value, { stream: true });
+                const lines = buf.split("\n");
+                buf = lines.pop() ?? "";
+                for (const line of lines) {
+                  if (!line.startsWith("data:")) continue;
+                  try {
+                    const ev = JSON.parse(line.slice(5).trim());
+                    if (ev.promptFeedback?.blockReason) finish = "content-filter";
+                    const c = ev.candidates?.[0];
+                    if (c?.finishReason && /SAFETY|PROHIBITED|BLOCKLIST|SPII/.test(c.finishReason)) finish = "content-filter";
+                    else if (c?.finishReason) finish = String(c.finishReason).toLowerCase();
+                    for (const p of c?.content?.parts ?? []) if (p.text && !p.thought) yield p.text as string;
+                  } catch {
+                    /* linha incompleta */
+                  }
+                }
+              }
+            } finally {
+              resolveFinish(finish);
+            }
+          }
+          return { textStream: gen(), finishReason };
         };
         const attempts: Attempt[] = [];
         const add = (
@@ -224,9 +302,16 @@ export const Route = createFileRoute("/api/chat")({
         const geminiModelId = resolveGeminiModelId(body.geminiModel);
         const [firstGemini, ...otherGemini] = [geminiModelId, ...geminiFallbackModels(geminiModelId)];
         const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai";
+        void GEMINI_URL;
         const addGemini = (modelId: string) =>
           geminiKeys.forEach((key) =>
-            add(`gemini#${keyNo(key)}:${modelId}`, `Gemini · chave ${keyNo(key)} de ${allGemini.length}`, modelId, GEMINI_URL, key, temperature),
+            attempts.push({
+              label: `gemini#${keyNo(key)}:${modelId}`,
+              provider: `Gemini · chave ${keyNo(key)} de ${allGemini.length}`,
+              modelId,
+              key,
+              run: (_onErr, signal) => runNativeGemini(modelId, key, signal),
+            }),
           );
         // OpenRouter removido (modelos grátis retornavam texto corrompido).
         // Ordem: Gemini preferido → Kimi → OpenAI → outros Gemini.
@@ -390,10 +475,10 @@ export const Route = createFileRoute("/api/chat")({
                   );
                   stopAll = true;
                 } else {
+                  // vazio momentâneo: tenta a PRÓXIMA CHAVE no mesmo modelo
                   lastError = new Error(
-                    `O provedor (${attempt.label}) respondeu vazio. Tente outro modelo.`,
+                    `O provedor (${attempt.label}) respondeu vazio — tentando outra chave.`,
                   );
-                  emptyModels.add(attempt.modelId);
                 }
                 console.error(`[chat] ${attempt.label} respondeu vazio`, finish);
               }
