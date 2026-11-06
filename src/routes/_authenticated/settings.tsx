@@ -342,7 +342,8 @@ function splitKeys(text: string) {
 }
 
 const EXTRA_PROVIDERS = [
-  { id: "openrouter", title: "Chaves do OpenRouter (prioridade)", hint: "sk-or-v1-... (uma por linha)", link: "https://openrouter.ai/keys", defModel: "openrouter/free" },
+  { id: "openrouter", title: "OpenRouter — grátis, sem filtro do Google", hint: "sk-or-v1-... (uma por linha)", link: "https://openrouter.ai/keys", defModel: "openrouter/free", help: "Como pegar grátis: 1) Abra o link e entre com sua conta Google. 2) Toque em “Create Key”. 3) Copie a chave sk-or-v1-... e cole aqui. Não precisa de cartão. Use modelos com “:free” no nome (ex.: openrouter/free)." },
+  { id: "horde", title: "Rede comunitária (AI Horde) — grátis e sem censura", hint: "0000000000 (chave anônima) ou sua chave", link: "https://aihorde.net/register", defModel: "", help: "Já funciona sem cadastro com a chave anônima 0000000000. Criando conta grátis no link você ganha prioridade na fila. É mais lenta (10–25 s). Ligue abaixo para usar." },
   { id: "openai", title: "Chave da OpenAI", hint: "sk-...", link: "https://platform.openai.com/api-keys", defModel: "gpt-4o-mini" },
   { id: "kimi", title: "Chave do Kimi (Moonshot)", hint: "sk-...", link: "https://platform.moonshot.ai/console/api-keys", defModel: "kimi-k2-0905-preview" },
 ] as const;
@@ -355,6 +356,7 @@ function ExtraKeys() {
       v[`${p.id}-keys`] = localStorage.getItem(`lumen-${p.id}-keys`) ?? "";
       v[`${p.id}-model`] = localStorage.getItem(`lumen-${p.id}-model`) ?? p.defModel;
     });
+    v["horde-enabled"] = localStorage.getItem("lumen-horde-enabled") ?? "0";
     setVals(v);
   }, []);
   const set = (k: string, value: string) => {
@@ -366,7 +368,7 @@ function ExtraKeys() {
       <div>
         <Label className="text-base">Chaves extras (anti-falha)</Label>
         <p className="mt-1 text-xs text-muted-foreground">
-          O chat tenta OpenRouter primeiro, depois Gemini, Kimi e OpenAI. Chaves inválidas são puladas sozinhas.
+          O chat tenta o Gemini primeiro; se ele travar, passa para OpenRouter e depois a rede comunitária. Chaves inválidas são puladas sozinhas.
           Salvo automaticamente neste aparelho.
         </p>
       </div>
@@ -392,6 +394,17 @@ function ExtraKeys() {
             }}
             placeholder={p.hint}
           />
+          {"help" in p && <p className="text-xs text-muted-foreground">{p.help}</p>}
+          {p.id === "horde" ? (
+            <label className="flex items-center gap-2 text-xs">
+              <Switch
+                checked={vals["horde-enabled"] === "1"}
+                onCheckedChange={(c) => set("horde-enabled", c ? "1" : "0")}
+              />
+              Usar a rede comunitária quando o Gemini travar
+            </label>
+          ) : (
+          <>
           <p className="text-xs text-muted-foreground">
             {(vals[`${p.id}-keys`] ?? "").split(/[\s,;]+/).filter((k) => k.trim().length > 10).length} chave(s) detectada(s)
           </p>
@@ -401,6 +414,8 @@ function ExtraKeys() {
             onChange={(e) => set(`${p.id}-model`, e.target.value)}
             placeholder={p.defModel}
           />
+          </>
+          )}
         </div>
       ))}
     </div>

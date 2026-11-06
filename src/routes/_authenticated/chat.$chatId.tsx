@@ -186,6 +186,7 @@ function ChatSurface({
                 kimiModel: localStorage.getItem("lumen-kimi-model") ?? "",
                 openrouterKeys: localStorage.getItem("lumen-openrouter-keys") ?? "",
                 openrouterModel: localStorage.getItem("lumen-openrouter-model") ?? "",
+                hordeKey: localStorage.getItem("lumen-horde-enabled") === "1" ? (localStorage.getItem("lumen-horde-keys") || "0000000000") : "",
               }
             : {}),
           intense,
@@ -351,6 +352,9 @@ function ChatSurface({
         openaiModel: localStorage.getItem("lumen-openai-model") ?? "",
         kimiKeys: localStorage.getItem("lumen-kimi-keys") ?? "",
         kimiModel: localStorage.getItem("lumen-kimi-model") ?? "",
+        openrouterKeys: localStorage.getItem("lumen-openrouter-keys") ?? "",
+        openrouterModel: localStorage.getItem("lumen-openrouter-model") ?? "",
+        hordeKey: localStorage.getItem("lumen-horde-enabled") === "1" ? (localStorage.getItem("lumen-horde-keys") || "0000000000") : "",
         intense,
         spicy,
         chatId,

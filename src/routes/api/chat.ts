@@ -36,6 +36,7 @@ type ChatBody = {
   kimiModel?: string | null;
   openrouterKeys?: string | null;
   openrouterModel?: string | null;
+  hordeKey?: string | null;
   chatId?: string | null;
   intense?: boolean;
   spicy?: boolean;
@@ -121,7 +122,10 @@ export const Route = createFileRoute("/api/chat")({
         const keyNo = (k: string) => allGemini.indexOf(k) + 1;
         const openaiKeys = parseApiKeyList(body.openaiKeys);
         const kimiKeys = parseApiKeyList(body.kimiKeys);
-        if (geminiKeys.length + openaiKeys.length + kimiKeys.length === 0) {
+        const extraOr = parseApiKeyList(body.openrouterKeys).filter((k) => k.startsWith("sk-or-"));
+        openaiKeys.push(...extraOr.filter((k) => !openaiKeys.includes(k)));
+        const hordeKey = (body.hordeKey || "").trim();
+        if (geminiKeys.length + openaiKeys.length + kimiKeys.length === 0 && !hordeKey) {
           return new Response(
             "Adicione uma chave do Gemini em Ajustes (ou use o modelo local).",
             { status: 400 },
@@ -330,12 +334,21 @@ export const Route = createFileRoute("/api/chat")({
         realOpenai.forEach((key, i) =>
           add(`openai#${i + 1}:${openaiModel}`, `OpenAI (chave ${i + 1}/${realOpenai.length})`, openaiModel, "https://api.openai.com/v1", key, openaiTemp),
         );
-        const orModels = ["meta-llama/llama-3.3-70b-instruct:free", "deepseek/deepseek-chat-v3-0324:free"];
+        const orCustom = (body.openrouterModel || "").trim();
+        const orModels = [
+          ...(orCustom && orCustom !== "openrouter/free" ? [orCustom] : []),
+          "openrouter/free",
+          "meta-llama/llama-3.3-70b-instruct:free",
+        ];
         orModels.forEach((m) =>
           orKeys.forEach((key, i) =>
             add(`openrouter#${i + 1}:${m}`, `OpenRouter (chave ${i + 1}/${orKeys.length})`, m, "https://openrouter.ai/api/v1", key, Math.min(temperature, 1)),
           ),
         );
+        // Rede comunitária (AI Horde) — gratuita, mais lenta; usada como reserva.
+        if (hordeKey) {
+          add("horde#1:koboldcpp", "Rede comunitária (AI Horde)", "koboldcpp", "https://oai.aihorde.net/v1", hordeKey, Math.min(temperature, 1));
+        }
         otherGemini.forEach(addGemini);
         // Modo rápido: modelos leves primeiro. Auto-regulagem: o último que funcionou vai na frente.
         const isLight = (m: string) => /lite|flash|lightning|mini/i.test(m);
