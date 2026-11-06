@@ -386,8 +386,11 @@ export const Route = createFileRoute("/api/chat")({
               error instanceof Error ? error.message : typeof error === "string" ? error : String(error);
 
             let lastError: unknown = null;
+            // Google recusou/filtrou: pula o resto do Gemini e segue para OpenRouter/Horde.
+            let skipGemini = false;
             for (const [index, attempt] of attempts.entries()) {
               if (badKeys.has(attempt.key) || emptyModels.has(attempt.modelId)) continue;
+              if (skipGemini && attempt.label.startsWith("gemini#")) continue;
               if ((cooldown.get(`${attempt.key}|${attempt.modelId}`) ?? 0) > Date.now()) continue;
               lastError = null;
               const t0 = Date.now();
@@ -520,7 +523,9 @@ export const Route = createFileRoute("/api/chat")({
               });
               if (!lastError) break;
               // se já streamou texto parcial, não tenta outro provedor
-              if (chars > 0 || stopAll) break;
+              if (chars > 0) break;
+              if (stopAll && attempt.label.startsWith("gemini#")) skipGemini = true;
+              else if (stopAll) break;
             }
 
 

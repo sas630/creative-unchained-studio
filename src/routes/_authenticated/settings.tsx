@@ -348,6 +348,14 @@ const EXTRA_PROVIDERS = [
   { id: "kimi", title: "Chave do Kimi (Moonshot)", hint: "sk-...", link: "https://platform.moonshot.ai/console/api-keys", defModel: "kimi-k2-0905-preview" },
 ] as const;
 
+const OR_FREE_MODELS = [
+  { id: "openrouter/free", label: "Automático (grátis)" },
+  { id: "meta-llama/llama-3.3-70b-instruct:free", label: "Llama 3.3 70B" },
+  { id: "mistralai/mistral-nemo:free", label: "Mistral Nemo" },
+  { id: "qwen/qwen-2.5-72b-instruct:free", label: "Qwen 2.5 72B" },
+  { id: "deepseek/deepseek-chat-v3-0324:free", label: "DeepSeek V3" },
+] as const;
+
 function ExtraKeys() {
   const [vals, setVals] = useState<Record<string, string>>({});
   useEffect(() => {
@@ -408,6 +416,20 @@ function ExtraKeys() {
           <p className="text-xs text-muted-foreground">
             {(vals[`${p.id}-keys`] ?? "").split(/[\s,;]+/).filter((k) => k.trim().length > 10).length} chave(s) detectada(s)
           </p>
+          {p.id === "openrouter" && (
+            <div className="flex flex-wrap gap-1.5">
+              {OR_FREE_MODELS.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => set("openrouter-model", m.id)}
+                  className={`rounded-full border px-2.5 py-1 text-xs ${vals["openrouter-model"] === m.id ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground"}`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          )}
           <Input
             className="font-mono text-xs"
             value={vals[`${p.id}-model`] ?? ""}
