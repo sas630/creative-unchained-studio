@@ -40,16 +40,33 @@ function CharactersPage() {
     },
   });
 
+  const { data: mine } = useQuery({
+    queryKey: ["my-characters"],
+    queryFn: async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) return [];
+      const { data, error } = await supabase
+        .from("characters")
+        .select("*")
+        .eq("user_id", auth.user.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return data ?? [];
-    return (data ?? []).filter(
+    const seen = new Set<string>();
+    const all = [...(mine ?? []), ...(data ?? [])].filter((c) => !seen.has(c.id) && seen.add(c.id));
+    if (!q) return all;
+    return all.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
         (c.tagline ?? "").toLowerCase().includes(q) ||
         c.tags.some((t) => t.toLowerCase().includes(q)),
     );
-  }, [data, query]);
+  }, [data, mine, query]);
 
   return (
     <div className="min-h-screen">

@@ -44,10 +44,10 @@ export const Route = createFileRoute("/api/tts")({
                 method: "POST",
                 headers: { "Content-Type": "application/json", "x-goog-api-key": key },
                 body: JSON.stringify({
-                  contents: [{ parts: [{ text: `Leia em português do Brasil, com emoção natural: ${text}` }] }],
+                  contents: [{ parts: [{ text: `Leia em português do Brasil como um dublador de anime: voz masculina jovem, calorosa e expressiva, com pausas e emoção naturais, nada robótica: ${text}` }] }],
                   generationConfig: {
                     responseModalities: ["AUDIO"],
-                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } } },
+                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Fenrir" } } },
                   },
                 }),
               },

@@ -98,8 +98,8 @@ export function CharacterCard({ character }: { character: Character }) {
         <CharacterAvatar character={character} />
         <div className="min-w-0">
           <h3 className="truncate font-serif text-lg">{character.name}</h3>
-          <p className="line-clamp-2 text-sm text-muted-foreground">
-            {character.tagline || character.persona.slice(0, 90)}
+          <p className="line-clamp-4 text-sm text-muted-foreground">
+            {character.tagline || character.persona.slice(0, 300) || "Sem descrição"}
           </p>
         </div>
       </div>

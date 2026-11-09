@@ -493,6 +493,11 @@ function ChatSurface({
     audioRef.current?.pause();
     const clean = textOf(m).replace(/[*_#`>~]/g, "").replace(/\s+/g, " ").trim();
     if (!clean) return;
+    // Voz neural do Gemini (natural, não robótica) por padrão.
+    if (profile?.gemini_api_keys?.trim()) {
+      void speakWithGemini(m, clean);
+      return;
+    }
     const synth = typeof window !== "undefined" ? window.speechSynthesis : undefined;
     const voices = synth?.getVoices() ?? [];
     if (!synth || typeof SpeechSynthesisUtterance === "undefined" || voices.length === 0) {
@@ -966,6 +971,18 @@ function ChatSurface({
                         }}
                       >
                         <Pencil className="size-3.5" />
+                      </Button>
+                    )}
+                    {m.role === "assistant" && !isFallback(m) && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-7 text-muted-foreground"
+                        title={speakingId === m.id ? "Parar áudio" : "Ouvir"}
+                        aria-label={speakingId === m.id ? "Parar áudio" : "Ouvir"}
+                        onClick={() => (speakingId === m.id ? stopSpeaking() : speak(m))}
+                      >
+                        {speakingId === m.id ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}
                       </Button>
                     )}
                     <ConfirmDelete
